@@ -62,6 +62,7 @@ def parse_parquet_file(pre_signed_url):
     building_id = pre_signed_url.split('/')[-1].split('.')[0]
     file_path = pre_signed_url.split('.com/')[1]
     release = file_path.split('timeseries_individual')[0].split('us-building-stock/')[1]
+    residential = 'resstock' in release
 
     logger.debug(f'Parsing parquet for: {building_id}')
 
@@ -76,12 +77,13 @@ def parse_parquet_file(pre_signed_url):
                               timestamp=max_load['timestamp'],
                               state='CA',
                               file_path=file_path,
-                              release=release)
+                              release=release,
+                              residential=residential)
 
     write_to_db(peak_load_data)
-    #
-    # with open(out_file, "w") as text_file:
-    #     text_file.write('\n job completed')
+
+    with open(out_file, "w") as text_file:
+        text_file.write('\n job completed')
 
 
 def main():
