@@ -38,7 +38,7 @@ batch_client = BatchServiceClient(credentials,
                                   batch_url=BATCH_ACCOUNT_URL)
 
 
-def configure_batch(batch_service_client, pool_id, job_id):
+def configure_batch(batch_service_client, pool_id, job_id, num_nodes=10):
     """Creates a Batch Pool and an associated job"""
     logger.debug("Creating Pool")
     image_ref_to_use = batchmodels.ImageReference(
@@ -66,7 +66,7 @@ def configure_batch(batch_service_client, pool_id, job_id):
             container_configuration=container_conf,
             node_agent_sku_id='batch.node.ubuntu 20.04'),
         vm_size='standard_d2s_v3',
-        target_dedicated_nodes=100)
+        target_dedicated_nodes=num_nodes)
     batch_service_client.pool.add(new_pool)
 
     # create job
@@ -83,10 +83,15 @@ def add_task(presigned_url, task_id, job_id, batch_service_client=batch_client):
         image_name=BICEP_IMAGE,
         container_run_options='--workdir /bicep'
     )
+
+    # attempt the task again if there is a non-zero exit code
+    task_constraints = batchmodels.TaskConstraints(max_task_retry_count=2)
+
     task = batchmodels.TaskAddParameter(
         id=task_id,
         command_line=f'/bin/sh -c \"python -m x_stock.x_stock_parsing --url \'{presigned_url}\'\"',
-        container_settings=task_container_settings
+        container_settings=task_container_settings,
+        constraints=task_constraints
     )
     batch_service_client.task.add(job_id=job_id, task=task)
 
@@ -120,24 +125,25 @@ def get_all_urls(xstock_release):
 
 
 if __name__ == '__main__':
-    comstock2023amy2018 = '2023/comstock_amy2018_release_2/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
-    resstock2022amy2018 = '2022/resstock_amy2018_release_1.1/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
+    # comstock_0 = '2023/comstock_amy2018_release_2/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
+    # resstock_0 = '2022/resstock_amy2018_release_1.1/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
+    resstock_6 = '2022/resstock_amy2018_release_1.1/timeseries_individual_buildings/by_state/upgrade=6/state=CA/'
 
-    target_files = get_all_urls(resstock2022amy2018)
+    target_files = get_all_urls(resstock_6)
 
-    job_id = 'resStock23'
+    job = 'resStock23_upgrade_6'
     configure_batch(batch_client,
                     pool_id='resStock23',
-                    job_id=job_id,)
+                    job_id=job,
+                    num_nodes=150)
 
     tasks = [f"task-{file.split('/')[-1].split('.')[0]}" for file in target_files]
-    input_list = zip(target_files, tasks, [job_id] * len(target_files))
+    input_list = zip(target_files, tasks, [job] * len(target_files))
 
-    import concurrent.futures
     # adds tasks in parallel
+    import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
         executor.map(lambda arg: add_task(*arg), input_list)
-
 
     # for file in target_files:
     #     parquet_num = file.split('/')[-1].split('.')[0]
