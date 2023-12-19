@@ -66,7 +66,7 @@ def configure_batch(batch_service_client, pool_id, job_id):
             container_configuration=container_conf,
             node_agent_sku_id='batch.node.ubuntu 20.04'),
         vm_size='standard_d2s_v3',
-        target_dedicated_nodes=50)
+        target_dedicated_nodes=100)
     batch_service_client.pool.add(new_pool)
 
     # create job
@@ -121,15 +121,25 @@ def get_all_urls(xstock_release):
 
 if __name__ == '__main__':
     comstock2023amy2018 = '2023/comstock_amy2018_release_2/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
+    resstock2022amy2018 = '2022/resstock_amy2018_release_1.1/timeseries_individual_buildings/by_state/upgrade=0/state=CA/'
 
-    target_files = get_all_urls(comstock2023amy2018)
+    target_files = get_all_urls(resstock2022amy2018)
 
-    job_id = 'comStock23'
+    job_id = 'resStock23'
     configure_batch(batch_client,
-                    pool_id='comStock23',
+                    pool_id='resStock23',
                     job_id=job_id,)
 
-    for file in target_files:
-        parquet_num = file.split('/')[-1].split('.')[0]
-        task_id = f'task-{parquet_num}'
-        add_task(file, task_id=task_id, job_id=job_id)
+    tasks = [f"task-{file.split('/')[-1].split('.')[0]}" for file in target_files]
+    input_list = zip(target_files, tasks, [job_id] * len(target_files))
+
+    import concurrent.futures
+    # adds tasks in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        executor.map(lambda arg: add_task(*arg), input_list)
+
+
+    # for file in target_files:
+    #     parquet_num = file.split('/')[-1].split('.')[0]
+    #     task_id = f'task-{parquet_num}'
+    #     add_task(file, task_id=task_id, job_id=job_id)
