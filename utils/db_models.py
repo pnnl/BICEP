@@ -15,7 +15,7 @@ from sqlalchemy.pool import NullPool
 
 from sqlalchemy.types import Integer
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
-from sqlalchemy.dialects.mssql import DATETIME2, CHAR
+from sqlalchemy.dialects.mssql import DATETIME2
 
 from utils.sensitive_config import sql_server_admin, sql_server_pass
 
@@ -54,9 +54,10 @@ class PeakLoad(Base):
     max_elec_consumption_kwh: Mapped[float]
     timestamp: Mapped[datetime.datetime] = mapped_column(DATETIME2())
     upgrade: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
-    state: Mapped[str] = mapped_column(CHAR(5))
+    state: Mapped[str]
     file_path: Mapped[str]
     release: Mapped[str]
+    residential: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     def __repr__(self):
         return f"PeakLoad(building={self.building_id!r})"
