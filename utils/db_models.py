@@ -119,15 +119,16 @@ class Technologies(Base):
     tech_name: Mapped[str]
     sector: Mapped[str]  # buildings, pv, ev
     end_use: Mapped[str]  # water heating, hp
-    required_capacity: Mapped[float] = mapped_column(Float, nullalble=True)
+    required_capacity: Mapped[float] = mapped_column(Float, nullable=True)
 
 
 class AdoptionForecasts(Base):
     __tablename__ = 'adoption-forecasts'
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tech_id: Mapped[int] = mapped_column(sqlalchemy.ForeignKey("technologies.tech_id"))
     tech_name: Mapped[str]
-    year: Mapped[str]
+    year: Mapped[int]
     scenario: Mapped[str]
     state: Mapped[str]
     num_stock: Mapped[float]
