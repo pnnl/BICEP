@@ -94,14 +94,12 @@ class StockMeta(Base):
 
     building_type: Mapped[str]
     vintage: Mapped[str]
-    year_built: Mapped[int]
+    year_built: Mapped[int] = mapped_column(Integer, nullable=True)
     sqft = Mapped[float]
 
     income: Mapped[str] = mapped_column(String, nullable=True)
-    building_america_climate_zone: Mapped[str]
     census_division: Mapped[str]
     census_region: Mapped[str]
-    county_name: Mapped[str]
     iso_rto_region: Mapped[str]
     nhgis_county: Mapped[str]
     nhgis_puma: Mapped[str]
