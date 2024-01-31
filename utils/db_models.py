@@ -7,6 +7,7 @@ User credentials are stored in ./utils/sensitive_config.py.
 """
 
 import datetime
+import pandas as pd
 
 from loguru import logger
 
@@ -149,6 +150,17 @@ class Upgrades(Base):
 def create_lookup_tables(database='x-stock'):
     Base.metadata.create_all(engines[database], checkfirst=True)
     logger.info('Created lookup tables')
+
+
+def query_to_df(query, database='x-stock', params=None):
+    """Run a raw sql query and return the result as a dataframe"""
+    validate_database(database)
+    try:
+        sql, params = query.sql()
+    except AttributeError:
+        sql = query
+        params = params
+    return pd.read_sql_query(sql=sql, con=engines[database], params=params)
 
 
 if __name__ == '__main__':
