@@ -95,7 +95,7 @@ class StockMeta(Base):
     building_type: Mapped[str]
     vintage: Mapped[str]
     year_built: Mapped[int] = mapped_column(Integer, nullable=True)
-    sqft = Mapped[float]
+    sqft: Mapped[float]
 
     income: Mapped[str] = mapped_column(String, nullable=True)
     census_division: Mapped[str]
@@ -126,10 +126,12 @@ class AdoptionForecasts(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tech_id: Mapped[int] = mapped_column(sqlalchemy.ForeignKey("technologies.tech_id"))
     tech_name: Mapped[str]
+    sector: Mapped[str] = mapped_column(String, nullable=True)
     year: Mapped[int]
     scenario: Mapped[str]
     state: Mapped[str]
-    num_stock: Mapped[float]
+    stock_projection: Mapped[float]
+    projection_units: Mapped[str]
 
 
 class Upgrades(Base):
@@ -138,7 +140,6 @@ class Upgrades(Base):
     upgrade_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     upgrade_name: Mapped[str]
     sector: Mapped[str]  # commercial/residential
-    tech_id: Mapped[int] = mapped_column(sqlalchemy.ForeignKey("technologies.tech_id"))
 
     cost_max: Mapped[float]
     cost_min: Mapped[float]
