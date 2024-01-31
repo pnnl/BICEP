@@ -4,7 +4,6 @@ pathlib
 numpy
 loguru
 
-
 # parquet parsing
 fsspec
 fastparquet
@@ -20,3 +19,6 @@ azure-storage-blob
 # database
 pymssql
 sqlalchemy
+
+# BICEP
+scipy
