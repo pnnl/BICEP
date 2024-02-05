@@ -11,7 +11,7 @@ from azure.storage.blob import BlobServiceClient
 
 from utils.sensitive_config import AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY
 
-container_name = 'biceb'
+container_name = 'bicep'
 bau_building_blob_name = 'scout-outputs/uec_sdshr_gcam_AEO2023Ref.json'
 high_building_blob_name = 'scout-outputs/uec_sdshr_gcam_alt-High.json'
 
