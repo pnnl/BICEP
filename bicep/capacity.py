@@ -13,7 +13,7 @@ import pandas as pd
 from sqlalchemy import select
 
 from utils.db_models import PeakLoad, query_to_df, engines
-from utils.sampling import utilization_distribution, sample_xstock
+from utils.sampling import utilization_samples
 
 PANEL_SIZES = [30, 50, 60, 70, 100, 125, 150, 200, 250, 300, 400, 600, 800, 1000,
                1200, 2000, 3000, 4000]
@@ -106,9 +106,7 @@ class CapacityEstimate:
         bldg['req_capacity'] = bldg['peak_amp'] * self.safety_factor
 
         # generate estimates for current utilization of installed capacity
-        percent_utilized_dist = utilization_distribution()
-        utilization_samples = percent_utilized_dist.resample(size=len(self.buildings))
-        bldg['utilization'] = utilization_samples[0]
+        bldg['utilization'] = utilization_samples(sample_size=len(self.buildings))
 
         # estimate existing capacity based on utilization draws
         bldg['est_capacity'] = bldg['peak_amp'] / bldg['utilization']

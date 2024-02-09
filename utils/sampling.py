@@ -5,6 +5,7 @@ the distribution of upgrade costs.
 
 from io import BytesIO
 
+import numpy as np
 import pandas as pd
 from scipy.stats import invweibull, lognorm, gaussian_kde
 from azure.storage.blob import BlobServiceClient
@@ -31,8 +32,7 @@ def sample_xstock(sample_size, residential):
     return query_to_df(query)
 
 
-def utilization_distribution():
-    """Distribution of panel utilization based on empirical data from HEA"""
+def get_panel_data():
     blob_client = service_client.get_blob_client(container=container_name,
                                                  blob=panel_capacity_file)
 
@@ -41,10 +41,42 @@ def utilization_distribution():
         blob_client.download_blob().readinto(input_blob)
         input_blob.seek(0)  # Seek to the start of the stream
         panel_data = pd.read_csv(input_blob)
+    return panel_data
 
+
+def utilization_distribution():
+    """Distribution of panel utilization based on empirical data from HEA"""
+    panel_data = get_panel_data()
     panel_data['perc_utilize'] = panel_data['utilized'] / panel_data['panel size']
-
     return gaussian_kde(panel_data['perc_utilize'])
+
+
+def utilization_samples(sample_size, min_value=0.02):
+    """
+    Sample the utilization_distribution and return n=sample_size samples.
+    Constrain samples to be larger or equal to min_value.
+    """
+    util_dist = utilization_distribution()
+    initial_samples = util_dist.resample(sample_size)
+
+    valid_samples = initial_samples[initial_samples >= min_value]
+    num_too_small = sample_size - len(valid_samples)
+
+    while num_too_small > 0:
+        new_samples = util_dist.resample(sample_size)
+        all_samples = np.concatenate([valid_samples, new_samples.reshape(-1)])
+        valid_samples = all_samples[all_samples >= min_value]
+        num_too_small = sample_size - len(valid_samples)
+
+    return valid_samples[:sample_size]
+
+
+def residential_panel_distribution():
+    """Distribution of residential panel sized based on empirical data from HEA"""
+    panel_data = get_panel_data()
+
+    panel_sizes = panel_data['panel size'].unique()
+    # todo: binned panel capacity probability based on peak amp
 
 
 def residential_panel_cost_distribution(distribution='lognormal'):
@@ -73,4 +105,5 @@ if __name__ == '__main__':
     # used for testing
 
     # sample = utilization_distribution()
-    sample = sample_xstock(12, -1)
+    # sample = sample_xstock(12, -1)
+    sample = utilization_samples(1580, 0.2)
