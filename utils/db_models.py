@@ -84,6 +84,7 @@ class StockMeta(Base):
 
     building_id: Mapped[int] = mapped_column(Integer,
                                              primary_key=True)
+    metadata_index: Mapped[int]
     weight: Mapped[float]
     residential: Mapped[int] = mapped_column(Integer, primary_key=True)
 

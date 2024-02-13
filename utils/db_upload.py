@@ -64,7 +64,8 @@ com_cols = ['metadata_index',
             'in.state',
             'in.ashrae_iecc_climate_zone_2006', ]
 
-res_col_mapping = {'metadata_index': 'building_id',
+res_col_mapping = {'metadata_index': 'metadata_index',
+                   'bldg_id': 'building_id',
                    'weight': 'weight',
                    'in.heating_fuel': 'heating_fuel',
                    'in.hvac_cooling_type': 'hvac_cool_type',
@@ -84,7 +85,8 @@ res_col_mapping = {'metadata_index': 'building_id',
                    'in.state': 'state',
                    'in.ashrae_iecc_climate_zone_2004': 'ashrae_iecc_climate_zone', }
 
-com_col_mapping = {'metadata_index': 'building_id',
+com_col_mapping = {'metadata_index': 'metadata_index',
+                   'bldg_id': 'building_id',
                    'weight': 'weight',
                    'in.heating_fuel': 'heating_fuel',
                    'in.hvac_cool_type': 'hvac_cool_type',
@@ -119,6 +121,7 @@ def upload_stock_meta(residential=True):
 
     logger.info(f'Retrieving baseline meta file for residential={residential}')
     data = pd.read_parquet(file, columns=cols)
+    data.reset_index(inplace=True)  # reset index so bldg_id is one of the columns
     data.rename(columns=col_mapping, inplace=True)
     data['residential'] = res
 
@@ -134,4 +137,5 @@ def upload_stock_meta(residential=True):
 
 
 if __name__ == '__main__':
+    upload_stock_meta(residential=True)
     upload_stock_meta(residential=False)
