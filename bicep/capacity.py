@@ -149,14 +149,17 @@ class CapacityEstimate:
         self.get_meta()
 
     def get_baseline_loads(self):
+        logger.info('Getting baseline peak loads')
         self.buildings = building_peak_loads(upgrade=0, residential=-1)
 
     def get_meta(self):
+        logger.info('Getting stock metadata')
         self.building_meta = query_to_df(select(StockMeta).where(StockMeta.state == 'CA'))
 
     def calculate_existing_capacity(self):
         """Estimate the existing capacity of the baseline stock models"""
 
+        logger.info('Calculating existing stock capacity')
         # join building sqft to peak load data
         self.buildings.set_index(['building_id', 'residential'], inplace=True)
         self.building_meta.set_index(['building_id', 'residential'], inplace=True)
@@ -205,6 +208,9 @@ class CapacityEstimate:
 
     def building_req_capacity(self, hp_upgrades=(3, 4,), hpwh_upgrades=(6, )):
         """Estimate required capacity for the building technologies: HP, HPWH"""
+
+        logger.info('Estimating required capacity for building techs')
+
         # retrieve calculated load differences
         all_upgrades = query_to_df(select(LoadDifference))
 
@@ -232,6 +238,9 @@ class CapacityEstimate:
 
     def pv_req_capacity(self):
         """Estimate the required PV system size and required capacity"""
+
+        logger.info('Estimating PV system size and capacity')
+
         # generate distribution of pv system sizes relative to the peak load of the building
         pv_size_dist = sampling.PvSizingDistribution()
         pv_sizes = pv_size_dist.constrained_samples(sample_size=len(self.buildings),
@@ -244,6 +253,9 @@ class CapacityEstimate:
 
     def ev_req_capacity(self):
         """Estimate the number of EV charges (assumed to be Level 2) and the total required capacity"""
+
+        logger.info('Estimating number of EV chargers and total required capacity')
+
         bldg = self.buildings  # less verbose
         num_commercial = len(bldg.loc[bldg['residential'] == 0])
         num_residential = len(bldg.loc[bldg['residential'] == 1])
