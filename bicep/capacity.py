@@ -156,6 +156,12 @@ class CapacityEstimate:
         logger.info('Getting stock metadata')
         self.building_meta = query_to_df(select(StockMeta).where(StockMeta.state == 'CA'))
 
+    def calculate_capacity(self):
+        self.calculate_existing_capacity()
+        self.building_req_capacity()
+        self.pv_req_capacity()
+        self.ev_req_capacity()
+
     def calculate_existing_capacity(self):
         """Estimate the existing capacity of the baseline stock models"""
 
