@@ -1,6 +1,11 @@
-"""This module defines the distributions and sampling functions used throughout
+"""
+This module defines the distributions and sampling functions used throughout
 BICEP, such as the distribution of panel utilization of the existing stock and
 the distribution of upgrade costs.
+
+Distributions are mix of kernel density estimates from empirical data and parameterize
+distributions based on rules of thumb and/or common industry values sourced from
+the relevant literature.
 """
 
 from io import BytesIO
@@ -33,6 +38,10 @@ def sample_xstock(sample_size, residential):
 
 
 def get_panel_data():
+    """
+    Pull the empirical sample data for electrical panel size and peak loads
+    for the BICEP Azure blob storage
+    """
     blob_client = service_client.get_blob_client(container=container_name,
                                                  blob=panel_capacity_file)
 
@@ -45,6 +54,12 @@ def get_panel_data():
 
 
 class BaseDistribution:
+    """
+    Base class for the distributions. The class provides a method to sample the
+    defined distribution and optionally constrain those values to a min and/or max
+    value.
+
+    """
     def __init__(self, kernel_fit=True):
         self.distribution = None
         self.kernel_fit = kernel_fit
@@ -94,6 +109,7 @@ class BaseDistribution:
 
 
 class PanelUtilizationDistribution(BaseDistribution):
+    """Distribution of panel utilization (peak load / panel capacity) sourced from empirical data"""
     def __init__(self):
         super().__init__(kernel_fit=True)
         self._init_distribution()
@@ -105,6 +121,11 @@ class PanelUtilizationDistribution(BaseDistribution):
 
 
 class PvSizingDistribution(BaseDistribution):
+    """
+    Distribution of PV sizes relative to the building peak load based on a very small
+    sample of data from NREL's Nationwide Analysis of U.S. Commercial Building Solar
+    (NREL/TP-6A20-64793).
+    """
     def __init__(self):
         super().__init__(kernel_fit=True)
         self._init_distribution()
@@ -120,6 +141,12 @@ class PvSizingDistribution(BaseDistribution):
 
 
 class EvSpotsDistribution(BaseDistribution):
+    """
+    Distribution of the number of EV parking spots relative to the total number
+    of parking spaces. The value varies widely based on local requirements but
+    a general rule of thumb is 5-10%. Here a normal distribution is assumed with
+    a mean of 7.5% and a standard deviation of 2.5%.
+        """
     def __init__(self, mean_value=0.075, std=0.025):
         super().__init__(kernel_fit=False)
         self.mean_value = mean_value
@@ -132,8 +159,15 @@ class EvSpotsDistribution(BaseDistribution):
 
 
 class ParkingSpotsDistribution(BaseDistribution):
-    def __init__(self, mean_value=3.5, std=.5):
-        super().__init__()
+    """
+    Distribution of the number of total number parking spots based on building
+    area. The value varies widely based on local requirements but  default values
+    sourced from Institute of Transportation Engineers, Transportation Planning
+    Handbook, 3rd edition. Here a normal distribution is assumed with a mean
+    of 3.8 spots / ksf with a standard deviation of 0.5.
+    """
+    def __init__(self, mean_value=3.8, std=.5):
+        super().__init__(kernel_fit=False)
         self.mean_value = mean_value
         self.std = std
 
@@ -144,6 +178,9 @@ class ParkingSpotsDistribution(BaseDistribution):
 
 
 class ResidentialEvDistribution(BaseDistribution):
+    """
+    Residential EV parking spaces are assumed to a random choice between 1 and 2.
+    """
     def __init__(self, choices=(1, 2,), weights=(0.5, 0.5,)):
         super().__init__()
         self.choices = choices
@@ -159,6 +196,14 @@ class ResidentialEvDistribution(BaseDistribution):
 
 
 class PanelUpgradeCostDistribution(BaseDistribution):
+    """
+    Distribution of the costs to upgrade a panel at a building. Empirical data is
+    limited and the costs vary widely depending on local electric code, building
+    characteristics, and the local utility. A literature search provided some
+    insight into the likely range of costs.
+
+    Two skewed distributions (long right tail) are provided here.
+    """
     def __init__(self, residential=True, distribution_type='lognormal'):
         super().__init__(kernel_fit=False)
         self.residential = residential
@@ -202,6 +247,13 @@ class PanelUpgradeCostDistribution(BaseDistribution):
             self.distribution = self._residential_cost_distribution()
         else:
             self.distribution = self._commercial_cost_distribution()
+
+
+def residential_panel_distribution():
+    """Distribution of residential panel sized based on empirical data from HEA"""
+    panel_data = get_panel_data()
+    panel_sizes = panel_data['panel size'].unique()
+    # todo: binned panel capacity probability based on peak amp
 
 
 if __name__ == '__main__':
