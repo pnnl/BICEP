@@ -7,11 +7,11 @@ Add local data files to BICEP database
 
 """
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 
 from utils.db_models import engines
-
 
 OEDI_BASE = 'https://oedi-data-lake.s3.amazonaws.com'
 EUSS_BASE = 'nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock'
@@ -40,7 +40,9 @@ res_cols = ['metadata_index',
             # 'nhgis_tract',
             'in.reeds_balancing_area',
             'in.state',
-            'in.ashrae_iecc_climate_zone_2004', ]
+            'in.ashrae_iecc_climate_zone_2004',
+            'in.geometry_building_number_units_mf',
+            'in.geometry_building_number_units_sfa',]
 
 com_cols = ['metadata_index',
             'weight',
@@ -129,6 +131,21 @@ def upload_stock_meta(residential=True):
         data['water_heating_type'] = data['water_heating_fuel']
         data['iso_rto_region'].fillna(value='None', inplace=True)
         data['reeds_balancing_area'].fillna(value=-1, inplace=True)
+
+    else:
+        # calculate the total number of units in each building
+        mf_col = 'in.geometry_building_number_units_mf'
+        sfa_col = 'in.geometry_building_number_units_sfa'
+        # single-family have 0 units in these columns
+        data[mf_col] = data[mf_col].replace('None', np.nan).astype('Int64').fillna(0)
+        data[sfa_col] = data[sfa_col].replace('None', np.nan).astype('Int64').fillna(0)
+
+        # calculate total number of units for single-family attached and multifamily
+        data['total_units'] = data[sfa_col] + data[mf_col]
+        # replace sf 0's with 1
+        data['total_units'].replace(0, 1, inplace=True)
+        # remove intermediate cols
+        data.drop(columns=[mf_col, sfa_col], inplace=True)
 
     logger.info('Uploading data to database')
     data.to_sql(name='stock-meta', con=engines['x-stock'],

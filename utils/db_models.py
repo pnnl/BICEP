@@ -100,6 +100,7 @@ class StockMeta(Base):
     sqft: Mapped[float]
 
     income: Mapped[str] = mapped_column(String, nullable=True)
+    total_units: Mapped[int] = mapped_column(Integer, nullable=True)
     census_division: Mapped[str]
     census_region: Mapped[str]
     iso_rto_region: Mapped[str]
