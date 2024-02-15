@@ -123,6 +123,19 @@ class Technologies(Base):
     required_capacity: Mapped[float] = mapped_column(Float, nullable=True)
 
 
+class TechMapping(Base):
+    __tablename__ = 'scout-xstock-tech-mapping'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tech_id: Mapped[int] = mapped_column(sqlalchemy.ForeignKey("technologies.tech_id"),
+                                         nullable=True)
+    scout_tech: Mapped[str] = mapped_column(String, nullable=True)
+    xstock_fuel: Mapped[str]
+    xstock_type: Mapped[str]
+    fuel_col: Mapped[str]
+    type_col: Mapped[str]
+
+
 class AdoptionForecasts(Base):
     __tablename__ = 'adoption-forecasts'
 
