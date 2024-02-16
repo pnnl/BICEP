@@ -175,7 +175,26 @@ def query_to_df(query, database='x-stock', params=None):
     except AttributeError:
         sql = query
         params = params
-    return pd.read_sql_query(sql=sql, con=engines[database], params=params)
+    try:
+        data = pd.read_sql_query(sql=sql, con=engines[database], params=params)
+        return data
+    except sqlalchemy.exc.OperationalError:
+        import time
+        attempts = 10
+        for attempt in range(attempts):
+            logger.error('Unable to reach the DB. Attempting db connection again. '
+                         f'Attempt: {attempt} of {attempts}')
+            time.sleep(6)
+            try:
+                data = pd.read_sql_query(sql=sql,
+                                         con=engines[database],
+                                         params=params)
+                return data
+            except sqlalchemy.exc.OperationalError:
+                continue
+
+        raise ConnectionError("Connection to the database cannot be established. "
+                              "Please try refreshing the page.")
 
 
 if __name__ == '__main__':
