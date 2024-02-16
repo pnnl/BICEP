@@ -147,7 +147,7 @@ class EvSpotsDistribution(BaseDistribution):
     a general rule of thumb is 5-10%. Here a normal distribution is assumed with
     a mean of 7.5% and a standard deviation of 2.5%.
         """
-    def __init__(self, mean_value=0.075, std=0.025):
+    def __init__(self, mean_value=0.25, std=0.1):
         super().__init__(kernel_fit=False)
         self.mean_value = mean_value
         self.std = std
@@ -179,20 +179,19 @@ class ParkingSpotsDistribution(BaseDistribution):
 
 class ResidentialEvDistribution(BaseDistribution):
     """
-    Residential EV parking spaces are assumed to a random choice between 1 and 2.
+    Residential EV parking spaces are calculated from the total housing units
+    and an EV/housing units factor drawn from a normal distribution with a mean
+    of 1.5 and a standard deviation of 0.5.
     """
-    def __init__(self, choices=(1, 2,), weights=(0.5, 0.5,)):
-        super().__init__()
-        self.choices = choices
-        self.weights = weights
+    def __init__(self, mean_value=1.5, std=.5):
+        super().__init__(kernel_fit=False)
+        self.mean_value = mean_value
+        self.std = std
 
         self._init_distribution()
 
     def _init_distribution(self):
-        self.distribution = np.array(self.choices)
-
-    def _sample(self, sample_size):
-        return np.random.choice(self.choices, size=sample_size, p=self.weights)
+        self.distribution = norm(loc=self.mean_value, scale=self.std)
 
 
 class PanelUpgradeCostDistribution(BaseDistribution):

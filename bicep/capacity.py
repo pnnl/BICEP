@@ -169,8 +169,9 @@ class CapacityEstimate:
         # join building sqft to peak load data
         self.buildings.set_index(['building_id', 'residential'], inplace=True)
         self.building_meta.set_index(['building_id', 'residential'], inplace=True)
-        self.buildings = self.buildings.join(self.building_meta['sqft'])
+        self.buildings = self.buildings.join(self.building_meta[['sqft', 'weight', 'total_units']])
         self.buildings.reset_index(inplace=True)
+        self.building_meta.reset_index(inplace=True)
 
         bldg = self.buildings  # less verbose
 
@@ -250,7 +251,7 @@ class CapacityEstimate:
         # generate distribution of pv system sizes relative to the peak load of the building
         pv_size_dist = sampling.PvSizingDistribution()
         pv_sizes = pv_size_dist.constrained_samples(sample_size=len(self.buildings),
-                                                    min_value=0.01, max_value=2)
+                                                    min_value=0.01, max_value=1)
 
         # calculate pv system size and associated spare capacity required
         self.buildings['pv_relative_size'] = pv_sizes
@@ -280,17 +281,17 @@ class CapacityEstimate:
         res_evs_dist = sampling.ResidentialEvDistribution()
         res_evs = res_evs_dist.constrained_samples(sample_size=num_residential)
 
-        bldg['total_parking_spaces'] = 0.0
+        bldg['total_parking_spaces'] = bldg['total_units'] / 10  # calibrating to ~40M vehicles
         bldg['perc_ev_spaces'] = 0.0
         bldg['ev_spaces'] = 0.0
 
         # commercial buildings total parking
         commercial_ksf = bldg.loc[bldg['residential'] == 0, 'sqft'] / 1000
         bldg.loc[bldg['residential'] == 0, 'total_parking_spaces'] = parking_per_ksf * commercial_ksf
-        bldg.loc[bldg['residential'] == 1, 'total_parking_spaces'] = res_evs
+        # bldg.loc[bldg['residential'] == 1, 'total_parking_spaces'] = res_evs
 
         bldg.loc[bldg['residential'] == 0, 'perc_ev_spaces'] = comm_percent_ev
-        bldg.loc[bldg['residential'] == 1, 'perc_ev_spaces'] = 1
+        bldg.loc[bldg['residential'] == 1, 'perc_ev_spaces'] = res_evs
 
         bldg['ev_spaces'] = bldg['total_parking_spaces'] * bldg['perc_ev_spaces']
         bldg['ev_spaces'] = np.ceil(bldg['ev_spaces'])
@@ -305,7 +306,7 @@ if __name__ == '__main__':
     import time
 
     t0 = time.perf_counter()
-    cap = CapacityEstimate(0, 0)
+    cap = CapacityEstimate()
     cap.calculate_existing_capacity()
     cap.building_req_capacity()
     cap.pv_req_capacity()
@@ -314,6 +315,14 @@ if __name__ == '__main__':
 
     print(t1 - t0)
 
+    res = cap.buildings[cap.buildings['residential'] == 1]
+    com = cap.buildings[cap.buildings['residential'] == 0]
+
+    res_evs = res['ev_spaces'] * res['weight']
+    com_evs = com['ev_spaces'] * com['weight']
+
+    print(f'residential evs: {int(res_evs.sum()):,}')
+    print(f'commercial evs: {int(com_evs.sum()):,}')
     # import plotly.express as px
     # fig = px.histogram(cap.buildings, x='peak_amp')
     # fig.show()
