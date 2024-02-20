@@ -89,7 +89,7 @@ class BaseDistribution:
         if max_value is not None:
             samples = samples[samples <= max_value]
 
-        while len(samples) <= sample_size:
+        while len(samples) < sample_size:
             new_samples = self._sample(sample_size)
             samples = np.concatenate([samples, new_samples.reshape(-1)])
             if min_value is not None:
