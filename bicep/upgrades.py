@@ -55,10 +55,10 @@ class UpgradeEstimator(TechnologyAdoption):
 
     def _required_upgrades(self):
         logger.info('Calculating required upgrades')
-        ev_capacity = self.buildings['ev_adopted'] * self.buildings['ev_req_capacity_amp']
-        pv_capacity = self.buildings['pv_adopted'] * self.buildings['pv_req_capacity_amp']
-        hp_capacity = self.buildings['hp_adopted'] * self.buildings['hp_req_capacity_amp']
-        hpwh_capacity = self.buildings['hpwh_adopted'] * self.buildings['hpwh_req_capacity_amp']
+        ev_capacity = (self.buildings['ev_adopted'] * self.buildings['ev_req_capacity_amp']).fillna(0)
+        pv_capacity = (self.buildings['pv_adopted'] * self.buildings['pv_req_capacity_amp']).fillna(0)
+        hp_capacity = (self.buildings['hp_adopted'] * self.buildings['hp_req_capacity_amp']).fillna(0)
+        hpwh_capacity = (self.buildings['hpwh_adopted'] * self.buildings['hpwh_req_capacity_amp']).fillna(0)
         self.buildings['net_capacity_diff_amp'] = ev_capacity + pv_capacity + hp_capacity + hpwh_capacity
 
         self.buildings['required_add_capacity_amp'] = (self.buildings['net_capacity_diff_amp'] -
