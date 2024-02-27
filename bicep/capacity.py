@@ -43,8 +43,10 @@ from sqlalchemy import select
 from utils.db_models import LoadDifference, StockMeta, PeakLoad, query_to_df, engines
 import utils.sampling as sampling
 
-PANEL_SIZES = [30, 50, 60, 70, 100, 125, 150, 200, 250, 300, 400, 600, 800, 1000,
-               1200, 2000, 3000, 4000]
+PANEL_SIZES = [
+    # 30, 50, 60, 70,
+    100, 125, 150, 200, 250, 300, 400, 600, 800, 1000,
+    1200, 2000, 3000, 4000]
 
 
 def building_peak_loads(upgrade=0, residential=1):
