@@ -187,27 +187,38 @@ class CapacityEstimate:
         bldg.loc[bldg['residential'] == 0, 'peak_amp'] = bldg['peak_kw'] / self.comm_volt * 1000
         bldg.loc[bldg['residential'] == 0, 'assumed_volt'] = self.comm_volt
 
-        # todo: consider making this comparison iteratively
+        # generate estimates for current utilization of installed capacity
+        utilization_dist = sampling.PanelUtilizationDistribution()
+        bldg['utilization'] = utilization_dist.constrained_samples(sample_size=len(self.buildings),
+                                                                   min_value=0.1)
+
         # Assume medium voltage (e.g., 12.47 kV) service for large commercial
         bldg.loc[
             ((bldg['residential'] == 0) & (bldg['peak_amp'] > self.max_comm_amp)),
             'assumed_volt'] = self.med_volt
         bldg.loc[bldg['assumed_volt'] == self.med_volt, 'peak_amp'] = bldg['peak_kw'] / self.med_volt * 1000
 
-        # calculate required capacity from peak load
-        bldg['req_capacity'] = bldg['peak_amp'] * self.safety_factor
-
-        # generate estimates for current utilization of installed capacity
-        utilization_dist = sampling.PanelUtilizationDistribution()
-        bldg['utilization'] = utilization_dist.constrained_samples(sample_size=len(self.buildings),
-                                                                   min_value=0.02)
-
         # estimate existing capacity based on utilization draws
         bldg['est_capacity'] = bldg['peak_amp'] / bldg['utilization']
 
+        # apply medium voltage to the buildings with estimated capacity over max commercial amps
+        bldg.loc[
+            ((bldg['residential'] == 0) & (bldg['est_capacity'] > self.max_comm_amp)),
+            'assumed_volt'] = self.med_volt
+        bldg.loc[bldg['assumed_volt'] == self.med_volt, 'peak_amp'] = bldg['peak_kw'] / self.med_volt * 1000
+
+        # re-estimate existing capacity based on updated peak_amps and utilization draws
+        bldg['est_capacity'] = bldg['peak_amp'] / bldg['utilization']
+
+        # calculate required capacity from peak load
+        bldg['req_capacity'] = bldg['peak_amp'] * self.safety_factor
+
         # round up to the next largest panel size
         def round_up_to_panel_size(x):
-            return min(PANEL_SIZES, key=lambda val: (val - x) if val >= x else float('inf'))
+            if x > max(PANEL_SIZES):
+                return np.nan
+            else:
+                return min(PANEL_SIZES, key=lambda val: (val - x) if val >= x else float('inf'))
 
         bldg['installed_capacity'] = bldg['est_capacity'].apply(round_up_to_panel_size)
 
