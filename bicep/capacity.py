@@ -252,7 +252,7 @@ class CapacityEstimate:
 
         # convert peak load difference to kw and then amp
         bldg['hp_req_capacity_amp'] = bldg['hp_peak_diff_kwh'] / bldg['assumed_volt'] * 1000 / 0.25
-        bldg['hphw_req_capacity_amp'] = bldg['hpwh_peak_diff_kwh'] / bldg['assumed_volt'] * 1000 / 0.25
+        bldg['hpwh_req_capacity_amp'] = bldg['hpwh_peak_diff_kwh'] / bldg['assumed_volt'] * 1000 / 0.25
 
     def pv_req_capacity(self):
         """Estimate the required PV system size and required capacity"""
