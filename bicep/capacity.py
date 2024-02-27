@@ -291,20 +291,23 @@ class CapacityEstimate:
                                                               min_value=0.01)
 
         # generate samples for residential EV spaces
-        res_evs_dist = sampling.ResidentialEvDistribution()
-        res_evs = res_evs_dist.constrained_samples(sample_size=num_residential)
+        res_evs_dist = sampling.ResidentialEvDistribution(mean_value=1.25, std=.3)
+        res_evs = res_evs_dist.constrained_samples(sample_size=num_residential, min_value=0.01)
 
-        bldg['total_parking_spaces'] = bldg['total_units'] / 10  # calibrating to ~40M vehicles
+        bldg['total_parking_spaces'] = 0.0
         bldg['perc_ev_spaces'] = 0.0
         bldg['ev_spaces'] = 0.0
 
         # commercial buildings total parking
         commercial_ksf = bldg.loc[bldg['residential'] == 0, 'sqft'] / 1000
         bldg.loc[bldg['residential'] == 0, 'total_parking_spaces'] = parking_per_ksf * commercial_ksf
-        # bldg.loc[bldg['residential'] == 1, 'total_parking_spaces'] = res_evs
+        bldg.loc[bldg['residential'] == 1, 'total_parking_spaces'] = res_evs
 
         bldg.loc[bldg['residential'] == 0, 'perc_ev_spaces'] = comm_percent_ev
-        bldg.loc[bldg['residential'] == 1, 'perc_ev_spaces'] = res_evs
+        bldg.loc[bldg['residential'] == 1, 'perc_ev_spaces'] = 1
+
+        # calibrating to ~50M vehicles
+        bldg['represented_vehicles'] = (bldg['total_units']/5).fillna(1) * bldg['total_parking_spaces']
 
         bldg['ev_spaces'] = bldg['total_parking_spaces'] * bldg['perc_ev_spaces']
         bldg['ev_spaces'] = np.ceil(bldg['ev_spaces'])
@@ -331,11 +334,11 @@ if __name__ == '__main__':
     res = cap.buildings[cap.buildings['residential'] == 1]
     com = cap.buildings[cap.buildings['residential'] == 0]
 
-    res_evs = res['ev_spaces'] * res['weight']
-    com_evs = com['ev_spaces'] * com['weight']
+    res_ev = res['ev_spaces'] * res['weight']
+    com_ev = com['ev_spaces'] * com['weight']
 
-    print(f'residential evs: {int(res_evs.sum()):,}')
-    print(f'commercial evs: {int(com_evs.sum()):,}')
+    print(f'residential evs: {int(res_ev.sum()):,}')
+    print(f'commercial evs: {int(com_ev.sum()):,}')
     # import plotly.express as px
     # fig = px.histogram(cap.buildings, x='peak_amp')
     # fig.show()

@@ -41,7 +41,7 @@ class TechnologyAdoption(CapacityEstimate):
 
     def calculate_adoptions(self):
         logger.info('Calculating adoption rate for EV')
-        self._iterative_adoption(tech='ev', tech_project_col='ev_spaces')
+        self._iterative_adoption(tech='ev', tech_project_col='represented_vehicles')
         logger.info('Calculating adoption rate for PV')
         self._iterative_adoption(tech='pv', tech_project_col='pv_size_kw')
         logger.info('Calculating adoption rate for HPs')
