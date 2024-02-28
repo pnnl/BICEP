@@ -26,11 +26,12 @@ class UpgradeEstimator(TechnologyAdoption):
     end year) and then brought back to present value of the base year. If the rates are the same,
     the costs are reported in the base year dollars.
 
+    :param aggregation_level: The spatial aggregation level for the costs (state or national)
     :param nominal_inflation_rate: the nominal inflation rate used in future value calculation
     :param discount_rate: the discount rate used to bring future values to present (base year) value
     """
-    def __init__(self, nominal_inflation_rate=0.02,
-                 discount_rate=0.02,
+    def __init__(self, aggregation_level='state',
+                 nominal_inflation_rate=0.02, discount_rate=0.02,
                  cost_distribution=PanelUpgradeCostDistribution,
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
@@ -47,11 +48,20 @@ class UpgradeEstimator(TechnologyAdoption):
         self.discount_rate = discount_rate
         self.inflation_rate = nominal_inflation_rate
 
+        self.level = aggregation_level
+        self.total_cost = None
+        self.state_costs = None
+        self.residential = None
+        self.commercial = None
+        self.total_residential_costs = None
+        self.total_commercial_costs = None
+
         self.calculate_adoptions()
 
     def calculate_costs(self):
         self._required_upgrades()
         self._upgrade_costs()
+        self._aggregate()
 
     def _required_upgrades(self):
         logger.info('Calculating required upgrades')
@@ -120,6 +130,24 @@ class UpgradeEstimator(TechnologyAdoption):
                                    nper=self.base_year - row['upgrade_year'],
                                    pmt=0,
                                    fv=row['fv_upgrade_cost']), axis=1)
+
+    def _aggregate(self):
+        if self.discount_rate == self.inflation_rate:
+            cost_col = 'upgrade_costs'
+        else:
+            cost_col = 'pv_upgrade_cost'
+
+        self.buildings['weighted_cost'] = self.buildings[cost_col] * self.buildings['weight']
+
+        self.state_costs = self.buildings.groupby('state')['weighted_cost'].sum()
+
+        self.total_cost = self.state_costs.sum()
+
+        self.residential = self.buildings[self.buildings['residential'] == 1]
+        self.commercial = self.buildings[self.buildings['residential'] == 0]
+
+        self.total_residential_costs = self.residential['weighted_cost'].sum()
+        self.total_commercial_costs = self.commercial['weighted_cost'].sum()
 
 
 if __name__ == '__main__':
