@@ -30,7 +30,8 @@ class UpgradeEstimator(TechnologyAdoption):
     :param nominal_inflation_rate: the nominal inflation rate used in future value calculation
     :param discount_rate: the discount rate used to bring future values to present (base year) value
     """
-    def __init__(self, aggregation_level='state',
+
+    def __init__(self, aggregation_level='state', annualized_costs=True, upgrade_lifespan=25,
                  nominal_inflation_rate=0.02, discount_rate=0.02,
                  cost_distribution=PanelUpgradeCostDistribution,
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
@@ -44,6 +45,8 @@ class UpgradeEstimator(TechnologyAdoption):
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
                          panel_safety_factor=panel_safety_factor)
+        self.annualized = annualized_costs
+        self.upgrade_lifespan = upgrade_lifespan
         self.cost_distribution = cost_distribution
         self.discount_rate = discount_rate
         self.inflation_rate = nominal_inflation_rate
@@ -108,6 +111,12 @@ class UpgradeEstimator(TechnologyAdoption):
              (self.buildings['upgrade_required'] == 1)),
             'upgrade_costs'] = commercial_costs
 
+        # equivalent annual cost
+        self.buildings['equiv_annual_cost'] = self.buildings.apply(
+            lambda row: npf.pmt(rate=self.discount_rate,
+                                nper=self.upgrade_lifespan,
+                                pv=-row['upgrade_costs']), axis=1)
+
         if self.discount_rate != self.inflation_rate:
             possible_years = np.arange(start=self.base_year, stop=self.end_year + 1, dtype=int)
 
@@ -122,20 +131,23 @@ class UpgradeEstimator(TechnologyAdoption):
                 lambda row: npf.fv(rate=self.inflation_rate,
                                    nper=self.base_year - row['upgrade_year'],
                                    pmt=0,
-                                   pv=row['upgrade_costs']), axis=1)
+                                   pv=-row['upgrade_costs']), axis=1)
 
             # future value
             self.buildings['pv_upgrade_cost'] = self.buildings.apply(
                 lambda row: npf.pv(rate=self.discount_rate,
                                    nper=self.base_year - row['upgrade_year'],
                                    pmt=0,
-                                   fv=row['fv_upgrade_cost']), axis=1)
+                                   fv=-row['fv_upgrade_cost']), axis=1)
 
     def _aggregate(self):
-        if self.discount_rate == self.inflation_rate:
-            cost_col = 'upgrade_costs'
+        if self.annualized:
+            cost_col = 'equiv_annual_cost'
         else:
-            cost_col = 'pv_upgrade_cost'
+            if self.discount_rate == self.inflation_rate:
+                cost_col = 'upgrade_costs'
+            else:
+                cost_col = 'pv_upgrade_cost'
 
         self.buildings['weighted_cost'] = self.buildings[cost_col] * self.buildings['weight']
 

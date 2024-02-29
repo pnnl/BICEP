@@ -7,14 +7,17 @@ from utils.sampling import PanelUpgradeCostDistribution
 
 
 class BicepResults(UpgradeEstimator):
-    def __init__(self, aggregation_level='state', nominal_inflation_rate=0.02,
+    def __init__(self, aggregation_level='state', annualized=True,
+                 upgrade_lifespan=25,
+                 nominal_inflation_rate=0.02,
                  discount_rate=0.02,
                  cost_distribution=PanelUpgradeCostDistribution,
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
                  panel_safety_factor=1.25):
-        super().__init__(aggregation_level=aggregation_level,
+        super().__init__(aggregation_level=aggregation_level, annualized_costs=annualized,
+                         upgrade_lifespan=upgrade_lifespan,
                          nominal_inflation_rate=nominal_inflation_rate, discount_rate=discount_rate,
                          cost_distribution=cost_distribution,
                          scenario=scenario, base_year=base_year, end_year=end_year, epsilon=epsilon,
