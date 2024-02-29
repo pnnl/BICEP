@@ -99,6 +99,27 @@ class BicepResults(UpgradeEstimator):
                             yaxis_title="Stock Count")
         histo.show()
 
+    def plot_panel_capacity(self, residential=1, log_y=True):
+        dataset = self._filter_dataset(residential=residential)
+        dataset = dataset[['installed_capacity', 'peak_amp']].sort_values(by=['installed_capacity', 'peak_amp'],
+                                                                          ascending=[True, False])
+        capacity = go.Figure()
+        installed_cap = dataset['installed_capacity']
+        peak_load = dataset['peak_amp']
+        x = list(range(len(installed_cap)))
+
+        capacity.add_trace(go.Scatter(x=x, y=installed_cap, name="Panel Size",
+                                      mode='lines', fill='tonexty'))
+        capacity.add_trace(go.Scatter(x=x, y=peak_load, name="Peak Load",
+                                      mode='lines', fill='tozeroy'))
+        if log_y:
+            capacity.update_yaxes(type="log")
+
+        capacity.update_layout(title='Panel Utilization and Capacity',
+                               xaxis_title="Building",
+                               yaxis_title="Amp")
+        capacity.show()
+
 
 if __name__ == '__main__':
     bau = BicepResults(scenario='bau')
