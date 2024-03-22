@@ -21,14 +21,14 @@ Reference herein to any specific commercial product, process, or service by trad
    <div align=center>
    <pre style="align-text:center;font-size:10pt">
    PACIFIC NORTHWEST NATIONAL LABORATORY
-   *operated by*
+   <i>operated by</i>
    BATTELLE
-   *for the*
+   <i>for the</i>
    UNITED STATES DEPARTMENT OF ENERGY
-   *under Contract DE-AC05-76RL01830*
+   <i>under Contract DE-AC05-76RL01830</i>
    </pre>
    </div>
 
 ## License
 
-Released under the 2-Clause BSD license (see License.txt)
+Released under the 2-Clause BSD license (see LICENSE.txt)
