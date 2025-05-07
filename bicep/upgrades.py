@@ -3,10 +3,13 @@ Estimate the upgrades and associated costs for the modeled existing capacity and
 required additional capacity resulting from the decarbonization technology scenarios.
 """
 
+from loguru import logger
 import numpy as np
 import numpy_financial as npf
+from utils.db_models import get_state_cost_factors
+import logging
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 
 from utils.sampling import PanelUpgradeCostDistribution
 from bicep.tech_adoption import TechnologyAdoption
@@ -99,19 +102,32 @@ class UpgradeEstimator(TechnologyAdoption):
         commercial_costs = commercial_costs_dist.constrained_samples(sample_size=num_commercial,
                                                                      min_value=0, max_value=350000)
 
-        self.buildings['upgrade_costs'] = np.nan
+        self.buildings['upgrade_costs_base'] = np.nan
 
         self.buildings.loc[
             ((self.buildings['residential'] == 1) &
              (self.buildings['upgrade_required'] == 1)),
-            'upgrade_costs'] = residential_costs
+            'upgrade_costs_base'] = residential_costs
 
         self.buildings.loc[
             ((self.buildings['residential'] == 0) &
              (self.buildings['upgrade_required'] == 1)),
-            'upgrade_costs'] = commercial_costs
-
-        # equivalent annual cost
+            'upgrade_costs_base'] = commercial_costs
+        
+        try:
+            logger.info('Retrieving state location factors from database')
+            state_factors = get_state_cost_factors()
+            factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
+            self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
+            unmapped = self.buildings[self.buildings['location_factor'] == -999]
+            logger.info(f"Unmapped states: {unmapped['state'].unique()}")
+            logger.info(f"Number of buildings with unmapped states: {len(unmapped)}")
+            logger.debug(f"There are {len(unmapped)} values that didn't map")
+        except Exception:
+            logger.error("Error applying location factors")
+            raise RuntimeError("Failed to apply location factors")
+        
+        self.buildings['upgrade_costs'] = self.buildings['upgrade_costs_base'] * self.buildings['location_factor']
         self.buildings['equiv_annual_cost'] = self.buildings.apply(
             lambda row: npf.pmt(rate=self.discount_rate,
                                 nper=self.upgrade_lifespan,
