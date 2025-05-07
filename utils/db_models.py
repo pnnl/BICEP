@@ -9,6 +9,7 @@ User credentials are stored in ./utils/sensitive_config.py.
 import datetime
 import pandas as pd
 
+
 from loguru import logger
 
 import sqlalchemy
@@ -195,6 +196,17 @@ def query_to_df(query, database='x-stock', params=None):
 
         raise ConnectionError("Connection to the database cannot be established. "
                               "Please try refreshing the page.")
+
+
+def get_state_cost_factors():
+    """
+    Retrieve state location cost factors from the database.
+    """
+    query = """
+    SELECT State, Factor 
+    FROM dbo.state_cost_factors
+    """
+    return query_to_df(query)
 
 
 if __name__ == '__main__':
