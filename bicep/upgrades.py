@@ -7,10 +7,6 @@ from loguru import logger
 import numpy as np
 import numpy_financial as npf
 from utils.db_models import get_state_cost_factors
-import logging
-
-logger = logging.getLogger(__name__)
-
 from utils.sampling import PanelUpgradeCostDistribution
 from bicep.tech_adoption import TechnologyAdoption
 
@@ -120,8 +116,6 @@ class UpgradeEstimator(TechnologyAdoption):
             factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
             self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
             unmapped = self.buildings[self.buildings['location_factor'] == -999]
-            logger.info(f"Unmapped states: {unmapped['state'].unique()}")
-            logger.info(f"Number of buildings with unmapped states: {len(unmapped)}")
             logger.debug(f"There are {len(unmapped)} values that didn't map")
         except Exception:
             logger.error("Error applying location factors")
