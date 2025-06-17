@@ -11,7 +11,11 @@ from loguru import logger
 
 from sqlalchemy import select
 
+import pandas as pd
+import numpy as np
+
 from utils.db_models import AdoptionForecasts, Technologies, TechMapping,  query_to_df
+from utils.db_models import get_new_pv_data
 from utils.sampling import sample_xstock
 from bicep.capacity import CapacityEstimate
 
@@ -77,10 +81,65 @@ class TechnologyAdoption(CapacityEstimate):
 
         tech_growth = end_year_projection - base_year_projection
 
+        # If this is PV technology, add new PV data
+        # This check is needed because _get_tech_projections handles ALL technologies 
+        # (heat pumps, EVs, solar, etc.) but we only want to add new data for PV (tech.id == 11)
+        if not projection.empty and projection['tech_id'].iloc[0] == 11:
+            new_pv_df = self._get_new_pv_projections()
+            if new_pv_df is not None and not new_pv_df.empty:
+                # Concatenate with existing DataFrame
+                projection = pd.concat([projection, new_pv_df], ignore_index=True)
+
         if return_difference:
             return tech_growth
         else:
             return base_year_projection, end_year_projection
+
+    def _get_new_pv_projections(self):
+        """Get additional PV projections from new data source."""
+        try:
+            pv_data,hierarchy_data  = get_new_pv_data(self.session)
+            processed_data = self.process_new_pv_data(pv_data, hierarchy_data)
+            
+            # Filter for current scenario and state
+            filtered_data = processed_data[
+                (processed_data['scenario'] == self.scenario) & 
+                (processed_data['state'] == self.state)
+            ]
+            
+            return filtered_data
+        except Exception:
+            return None
+
+    def process_new_pv_data(self, pv_data, hierarchy_data):
+        """Process new PV data to match the FORMAT of old PV data."""
+        year_cols = [col for col in pv_data.columns 
+                    if str(col).isdigit() and 2010 <= int(col) <= 2050]
+        
+        merged_data = pd.merge(pv_data, hierarchy_data, on='county_id', how='inner')
+        
+        long_data = merged_data.melt(
+            id_vars=['county_id', 'state'],
+            value_vars=year_cols,
+            var_name='year',
+            value_name='stock_projection'
+        )
+        
+        long_data['year'] = long_data['year'].astype(int)
+        
+        result = pd.DataFrame({
+            'id': range(1001, 1001 + len(long_data)),
+            'tech_id': 11,
+            'tech_name': 'pv',
+            'sector': '',
+            'year': long_data['year'],
+            'scenario': 'mid',
+            'state': long_data['state'],
+            'stock_projection': long_data['stock_projection'],
+            'projection_units': 'MW'
+        })
+        
+        return result
 
     def _building_adoption(self, end_use):
         # get base and target year totals for each type
