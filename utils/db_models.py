@@ -209,5 +209,33 @@ def get_state_cost_factors():
     return query_to_df(query)
 
 
+def get_new_pv_data():
+    """
+    Retrieve PV forecast data and hierarchy data from new tables.
+    
+    Returns:
+    --------
+    tuple: (pv_data, hierarchy_data)
+        Two dataframes containing the raw PV forecast data and county-state mapping
+    """
+    # Query for PV forecast data
+    pv_query = """
+    SELECT * 
+    FROM dbo.distpvcap_stscen2023_mid_case
+    """
+    
+    # Query for hierarchy data using the correct table name
+    hierarchy_query = """
+    SELECT county_id, st as state, ba
+    FROM dbo.CountyHierarchy
+    """
+    
+    # Execute queries
+    pv_data = query_to_df(pv_query)
+    hierarchy_data = query_to_df(hierarchy_query)
+    
+    return pv_data, hierarchy_data
+
+
 if __name__ == '__main__':
     create_lookup_tables()
