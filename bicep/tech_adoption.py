@@ -81,13 +81,10 @@ class TechnologyAdoption(CapacityEstimate):
 
         tech_growth = end_year_projection - base_year_projection
 
-        # If this is PV technology, add new PV data
-        # This check is needed because _get_tech_projections handles ALL technologies 
-        # (heat pumps, EVs, solar, etc.) but we only want to add new data for PV (tech.id == 11)
         if not projection.empty and projection['tech_id'].iloc[0] == 11:
             new_pv_df = self._get_new_pv_projections()
             if new_pv_df is not None and not new_pv_df.empty:
-                # Concatenate with existing DataFrame
+                #Concatenate with existing pv data once pv data processing step is triggered
                 projection = pd.concat([projection, new_pv_df], ignore_index=True)
 
         if return_difference:
@@ -100,8 +97,6 @@ class TechnologyAdoption(CapacityEstimate):
         try:
             pv_data,hierarchy_data  = get_new_pv_data(self.session)
             processed_data = self.process_new_pv_data(pv_data, hierarchy_data)
-            
-            # Filter for current scenario and state
             filtered_data = processed_data[
                 (processed_data['scenario'] == self.scenario) & 
                 (processed_data['state'] == self.state)
