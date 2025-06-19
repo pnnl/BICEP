@@ -95,14 +95,11 @@ class TechnologyAdoption(CapacityEstimate):
     def _get_new_pv_projections(self):
         """Get additional PV projections from new data source."""
         try:
-            pv_data,hierarchy_data  = get_new_pv_data(self.session)
+            pv_data, hierarchy_data = get_new_pv_data()
             processed_data = self.process_new_pv_data(pv_data, hierarchy_data)
-            filtered_data = processed_data[
-                (processed_data['scenario'] == self.scenario) & 
-                (processed_data['state'] == self.state)
-            ]
             
-            return filtered_data
+            # Return all processed data (no filtering needed since we want all new PV data)
+            return processed_data
         except Exception:
             return None
 
@@ -122,15 +119,18 @@ class TechnologyAdoption(CapacityEstimate):
         
         long_data['year'] = long_data['year'].astype(int)
         
+        # Aggregate by state and year - sum all county data within each state
+        aggregated_data = long_data.groupby(['state', 'year'])['stock_projection'].sum().reset_index()
+        
         result = pd.DataFrame({
-            'id': range(1001, 1001 + len(long_data)),
+            'id': range(1001, 1001 + len(aggregated_data)),
             'tech_id': 11,
             'tech_name': 'pv',
             'sector': '',
-            'year': long_data['year'],
+            'year': aggregated_data['year'],
             'scenario': 'mid',
-            'state': long_data['state'],
-            'stock_projection': long_data['stock_projection'],
+            'state': aggregated_data['state'],
+            'stock_projection': aggregated_data['stock_projection'],
             'projection_units': 'MW'
         })
         
