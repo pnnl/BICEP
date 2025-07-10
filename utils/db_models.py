@@ -111,6 +111,7 @@ class StockMeta(Base):
     reeds_balancing_area: Mapped[int]
     state: Mapped[str]
     ashrae_iecc_climate_zone: Mapped[str]
+    occupant_density_m_2 = mapped_column(Float, nullable=True)
 
 
 class Technologies(Base):
