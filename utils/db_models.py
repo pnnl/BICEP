@@ -179,7 +179,8 @@ def query_to_df(query, database='x-stock', params=None):
     try:
         data = pd.read_sql_query(sql=sql, con=engines[database], params=params)
         return data
-    except sqlalchemy.exc.OperationalError:
+    except sqlalchemy.exc.OperationalError as err:
+        logger.error(err)
         import time
         attempts = 10
         for attempt in range(attempts):

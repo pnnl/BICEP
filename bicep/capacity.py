@@ -313,6 +313,142 @@ class CapacityEstimate:
         bldg['ev_spaces'] = np.ceil(bldg['ev_spaces'])
         bldg['ev_req_capacity_amp'] = bldg['ev_spaces'] * self.ev_charger_amp * self.resid_volt / bldg['assumed_volt']
 
+    def calculate_parking_spaces_mhdv(self):
+        """
+        Calculate the number of parking spots for each building
+        based on its type, floor area, or occupant density.
+        """
+        logger.info('Estimating the number of parking spots in commercial buildings and the EV space')
+
+        building_sqft_per_spot = {
+            'Outpatient': 200,
+            'LargeOffice': 620,
+            'SmallOffice': 250,
+            'RetailStandalone': 285.7,
+            'Warehouse': 1000,
+            'RetailStripmall': 215,
+            'QuickServiceRestaurant': 100,
+            'MediumOffice': 250,
+            'FullServiceRestaurant': 100
+        } # Building area per parking spot by building type (ComStock Reference Documentation:Version 1, Table 61)
+
+        bldg = self.buildings
+        bldg = self.buildings[self.buildings['residential'] == 0].copy() # Filter only commercial buildings
+        num_commercial = len(bldg.loc[bldg['residential'] == 0])
+        bldg['total_parking_spaces'] = 0.0
+        bldg['mhdv_ev_parking_space'] = 0.0
+
+        # Estimating parking spaces in building based on area
+        area_based_mask = bldg['in.comstock_building_type'].isin(building_sqft_per_spot.keys())
+        bldg.loc[area_based_mask, 'total_parking_spaces'] = bldg.loc[area_based_mask].apply(
+            lambda row: row['in.sqft'] / building_sqft_per_spot[row['in.comstock_building_type']], axis=1)
+
+        # Estimating parking spaces in hotels based on occupancy
+        hotel_mask = bldg['in.comstock_building_type'].isin(['SmallHotel', 'LargeHotel'])
+        if hotel_mask.any():
+            bldg.loc[hotel_mask, 'num_people'] = (
+                    bldg.loc[hotel_mask, 'in.sqft'] *
+                    bldg.loc[hotel_mask, 'out.params.occupant_density_ppl_per_m_2..people_per_m2'] * 0.0929) # ft² to m²: 1 ft² = 0.0929 m²
+
+            bldg.loc[hotel_mask, 'num_hotel_units'] = bldg.loc[hotel_mask, 'num_people'] * 0.65 / 1.5 # hotel occupancy rate: 0.65 and occupants per hotel units: 1.5
+            bldg.loc[hotel_mask, 'total_parking_spaces'] = bldg.loc[hotel_mask, 'num_hotel_units']
+
+        # Estimate parking spaces in schools based on number of students
+        primary_mask = bldg['in.comstock_building_type'] == 'PrimarySchool'
+        secondary_mask = bldg['in.comstock_building_type'] == 'SecondarySchool'
+
+        school_mask = primary_mask | secondary_mask
+        if school_mask.any():
+            bldg.loc[school_mask, 'num_people'] = (
+                    bldg.loc[school_mask, 'in.sqft'] *
+                    bldg.loc[school_mask, 'out.params.occupant_density_ppl_per_m_2..people_per_m2'] * 0.0929)
+            bldg.loc[primary_mask, 'total_parking_spaces'] = bldg.loc[primary_mask, 'num_people'] / 17 # Students per parking space (ComStock Reference Documentation:Version 1, Table 61)
+            bldg.loc[secondary_mask, 'total_parking_spaces'] = bldg.loc[secondary_mask, 'num_people'] / 8 # Students per parking space (ComStock Reference Documentation:Version 1, Table 61)
+
+        # Estimate parking spaces in hospital based on area and number of beds
+        hospital_mask = bldg['in.comstock_building_type'] == 'Hospital'
+        bldg.loc[hospital_mask, 'total_parking_spaces'] = bldg.loc[hospital_mask, 'in.sqft'] * 0.000875 * 0.83 # 0.83 beds per parking space (Comstock Reference Doc. Table 61)  and 175 beds per 200,000 sq ft area (0.000875) ( https://www.definitivehc.com/resources/healthcare-insights/average-us-hospital-square-footage#:~:text=How%20does%20hospital%20facility%20size,of%201.2%20million%20square%20feet.)
+
+        # Removing intermediate columns
+        bldg.drop(columns=['num_people', 'num_hotel_units'], inplace=True, errors='ignore')
+
+        # generate distribution and samples for % MHDV EV spaces compared to total parking
+        mhdv_ev_parking_dist = sampling.EvSpotsDistribution()
+        percent_mhdv_ev = mhdv_ev_parking_dist.constrained_samples(sample_size = num_commercial, min_value=0.01)
+        bldg['mhdv_ev_parking_space'] = percent_mhdv_ev*bldg['total_parking_spaces']
+
+
+    def mhdv_ev_req_capacity(self, total_counts, seed=42):
+        """
+        Estimates the required charging capacity for MHDVs in each commercial building,
+        based on charger type distribution and number of parking spaces.
+        """
+
+        logger.info('Estimating the required capacity of MHDV chargers')
+
+        # Charger power ratings (in kW)
+        power_rating = {
+            "L2": 19.2,
+            "DC50": 50,
+            "DC150": 150,
+            "DC250": 250,
+            "DC350": 350,
+            "DC500": 500,
+            "DC750": 750,
+            "DC1000": 1000,
+            "DC1500": 1500,
+            "DC2000": 2000,
+            "DC3750": 3750
+        }
+
+        # Normalize charger distribution
+        charger_types = list(total_counts.keys())
+        counts = np.array(list(total_counts.values()), dtype=float)
+        probabilities = counts / counts.sum()
+
+        # Filter only commercial buildings
+        bldg = self.buildings[self.buildings['residential'] == 0].copy()
+
+        np.random.seed(seed)
+        charger_allocations = []
+
+        for _, row in bldg.iterrows():
+            num_chargers = int(row['mhdv_ev_parking_spaces'])
+            sampled = np.random.choice(charger_types, size=num_chargers, p=probabilities)
+            allocation = {ct: 0 for ct in charger_types}
+            for ct in sampled:
+                allocation[ct] += 1
+            charger_allocations.append(allocation)
+
+        # Compute total required capacity for each building
+        total_capacity = []
+        for alloc in charger_allocations:
+            capacity = sum(alloc[ct] * power_rating[ct] for ct in charger_types)
+            total_capacity.append(capacity)
+
+        # Assign results back to the dataframe
+        bldg['mhdv_amp'] = total_capacity
+        bldg['mhdv_ev_req_capacity_amp'] = bldg['mhdv_amp'] * bldg['mhdv_ev_parking_spaces']
+
+        self.buildings.loc[bldg.index, 'mhdv_amp'] = bldg['mhdv_amp']
+        self.buildings.loc[bldg.index, 'mhdv_ev_req_capacity_amp'] = bldg['mhdv_ev_req_capacity_amp']
+
+    # total_counts = {
+    #     "L2": 1200,
+    #     "DC50": 300,
+    #     "DC150": 400,
+    #     "DC250": 200,
+    #     "DC350": 100,
+    #     "DC500": 60,
+    #     "DC750": 50,
+    #     "DC1000": 30,
+    #     "DC1500": 20,
+    #     "DC2000": 10,
+    #     "DC3750": 5
+    # }
+    #
+    # cap.mhdv_ev_req_capacity(total_counts, seed=2025)
+
 
 if __name__ == '__main__':
     # building_peak_load_diff(non_zero_upgrade=4, residential=1)
@@ -327,6 +463,8 @@ if __name__ == '__main__':
     cap.building_req_capacity()
     cap.pv_req_capacity()
     cap.ev_req_capacity()
+    cap.calculate_parking_spaces_mhdv()  ### SA
+    cap.mhdv_ev_req_capacity()  ### SA
     t1 = time.perf_counter()
 
     print(t1 - t0)
