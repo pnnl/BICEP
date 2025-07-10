@@ -171,7 +171,7 @@ class CapacityEstimate:
         # join building sqft to peak load data
         self.buildings.set_index(['building_id', 'residential'], inplace=True)
         self.building_meta.set_index(['building_id', 'residential'], inplace=True)
-        self.buildings = self.buildings.join(self.building_meta[['sqft', 'weight', 'total_units']])
+        self.buildings = self.buildings.join(self.building_meta[['sqft', 'weight', 'total_units', 'occupant_density_m_2']])
         self.buildings.reset_index(inplace=True)
         self.building_meta.reset_index(inplace=True)
 
