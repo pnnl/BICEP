@@ -65,7 +65,7 @@ com_cols = ['metadata_index',
             'in.reeds_balancing_area',
             'in.state',
             'in.ashrae_iecc_climate_zone_2006',
-            'out.params.occupant_density_ppl_per_m_2..people_per_m2']  #SA
+            'out.params.occupant_density_ppl_per_m_2..people_per_m2']
 
 res_col_mapping = {'metadata_index': 'metadata_index',
                    'bldg_id': 'building_id',
@@ -108,7 +108,7 @@ com_col_mapping = {'metadata_index': 'metadata_index',
                    'in.reeds_balancing_area': 'reeds_balancing_area',
                    'in.state': 'state',
                    'in.ashrae_iecc_climate_zone_2006': 'ashrae_iecc_climate_zone',
-                   'out.params.occupant_density_ppl_per_m_2..people_per_m2': 'occupant_density_m_2'} #SA
+                   'out.params.occupant_density_ppl_per_m_2..people_per_m2': 'occupant_density_m_2'}
 
 
 def upload_stock_meta(residential=True):

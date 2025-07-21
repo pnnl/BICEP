@@ -111,6 +111,7 @@ class StockMeta(Base):
     reeds_balancing_area: Mapped[int]
     state: Mapped[str]
     ashrae_iecc_climate_zone: Mapped[str]
+    occupant_density_m_2 = mapped_column(Float, nullable=True)
 
 
 class Technologies(Base):
@@ -179,8 +180,7 @@ def query_to_df(query, database='x-stock', params=None):
     try:
         data = pd.read_sql_query(sql=sql, con=engines[database], params=params)
         return data
-    except sqlalchemy.exc.OperationalError as err:
-        logger.error(err)
+    except sqlalchemy.exc.OperationalError:
         import time
         attempts = 10
         for attempt in range(attempts):
