@@ -81,7 +81,7 @@ class TechnologyAdoption(CapacityEstimate):
 
         tech_growth = end_year_projection - base_year_projection
 
-        if not projection.empty and projection['tech_id'].iloc[0] == 11:
+        if not projection.empty and projection['tech_name'].iloc[0] == 'pv':
             new_pv_df = self._get_new_pv_projections()
             if new_pv_df is not None and not new_pv_df.empty:
                 #Concatenate with existing pv data once pv data processing step is triggered
