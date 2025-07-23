@@ -11,7 +11,11 @@ from loguru import logger
 
 from sqlalchemy import select
 
+import pandas as pd
+import numpy as np
+
 from utils.db_models import AdoptionForecasts, Technologies, TechMapping,  query_to_df
+from utils.db_models import get_new_pv_data
 from utils.sampling import sample_xstock
 from bicep.capacity import CapacityEstimate
 
@@ -77,10 +81,60 @@ class TechnologyAdoption(CapacityEstimate):
 
         tech_growth = end_year_projection - base_year_projection
 
+        if not projection.empty and projection['tech_name'].iloc[0] == 'pv':
+            new_pv_df = self._get_new_pv_projections()
+            if new_pv_df is not None and not new_pv_df.empty:
+                #Concatenate with existing pv data once pv data processing step is triggered
+                projection = pd.concat([projection, new_pv_df], ignore_index=True)
+
         if return_difference:
             return tech_growth
         else:
             return base_year_projection, end_year_projection
+
+    def _get_new_pv_projections(self):
+        """Get additional PV projections from new data source."""
+        try:
+            pv_data, hierarchy_data = get_new_pv_data()
+            processed_data = self.process_new_pv_data(pv_data, hierarchy_data)
+            
+            # Return all processed data (no filtering needed since we want all new PV data)
+            return processed_data
+        except Exception:
+            return None
+
+    def process_new_pv_data(self, pv_data, hierarchy_data):
+        """Process new PV data to match the FORMAT of old PV data."""
+        year_cols = [col for col in pv_data.columns 
+                    if str(col).isdigit() and 2010 <= int(col) <= 2050]
+        
+        merged_data = pd.merge(pv_data, hierarchy_data, on='county_id', how='inner')
+        
+        long_data = merged_data.melt(
+            id_vars=['county_id', 'state'],
+            value_vars=year_cols,
+            var_name='year',
+            value_name='stock_projection'
+        )
+        
+        long_data['year'] = long_data['year'].astype(int)
+        
+        # Aggregate by state and year - sum all county data within each state
+        aggregated_data = long_data.groupby(['state', 'year'])['stock_projection'].sum().reset_index()
+        
+        result = pd.DataFrame({
+            'id': range(1001, 1001 + len(aggregated_data)),
+            'tech_id': 11,
+            'tech_name': 'pv',
+            'sector': '',
+            'year': aggregated_data['year'],
+            'scenario': 'mid',
+            'state': aggregated_data['state'],
+            'stock_projection': aggregated_data['stock_projection'],
+            'projection_units': 'MW'
+        })
+        
+        return result
 
     def _building_adoption(self, end_use):
         # get base and target year totals for each type
