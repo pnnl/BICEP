@@ -1,5 +1,6 @@
 sensitive_config.py
-
+#work in progress for troubleshoouting
+*.json 
 
 # pycharm stuff
 .idea/
