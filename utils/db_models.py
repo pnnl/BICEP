@@ -210,6 +210,35 @@ def get_state_cost_factors():
     return query_to_df(query)
 
 
+def get_state_cost_factors_local():
+    """
+    Retrieve state location cost factors from local CSV file.
+    
+    Returns:
+    --------
+    pandas.DataFrame: DataFrame with columns ['State', 'Factor']
+    """
+    import os
+    
+    # Get the absolute path to the CSV file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)  # Go up one level from utils/
+    csv_path = os.path.join(project_root, 'input_folder', 'required_input', 'cost_factor.csv')
+    
+    try:
+        cost_factors = pd.read_csv(csv_path)
+        # Clean up column names (remove trailing spaces)
+        cost_factors.columns = cost_factors.columns.str.strip()
+        logger.info(f"Loaded state cost factors from local file: {csv_path}")
+        return cost_factors
+    except FileNotFoundError:
+        logger.error(f"Cost factor file not found at: {csv_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading cost factor file: {e}")
+        raise
+
+
 def get_new_pv_data():
     """
     Retrieve PV forecast data and hierarchy data from new tables.
