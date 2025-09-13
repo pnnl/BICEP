@@ -1,7 +1,9 @@
 sensitive_config.py
-#work in progress for troubleshoouting
-*.json 
+# ignore user configuration file except cost factor file
+# which is required for running the model
+*.json
 *.csv
+!input_folder/required_input/cost_factor.csv
 
 # pycharm stuff
 .idea/
