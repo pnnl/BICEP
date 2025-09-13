@@ -18,7 +18,11 @@ class BicepResults(UpgradeEstimator):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25):
+                 panel_safety_factor=1.25, target_states=None):
+        
+        if target_states is None:
+            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+        
         super().__init__(aggregation_level=aggregation_level, annualized_costs=annualized,
                          upgrade_lifespan=upgrade_lifespan,
                          nominal_inflation_rate=nominal_inflation_rate, discount_rate=discount_rate,
@@ -28,7 +32,7 @@ class BicepResults(UpgradeEstimator):
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states)
 
         self.calculate_costs()
         self._capacity_requirement_cols = ['ev_req_capacity_amp', 'pv_req_capacity_amp',
@@ -122,8 +126,8 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-    bau = BicepResults(scenario='bau')
-    high = BicepResults(scenario='high')
+    bau = BicepResults(scenario='bau', target_states=['CA'])
+    high = BicepResults(scenario='high', target_states=['CA'])
 
     print(f'total cost for bau: ${bau.total_cost:,.0f}')
     print(f'total cost for high: ${high.total_cost:,.0f}')
