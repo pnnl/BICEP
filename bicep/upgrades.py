@@ -6,7 +6,7 @@ required additional capacity resulting from the decarbonization technology scena
 from loguru import logger
 import numpy as np
 import numpy_financial as npf
-from utils.db_models import get_state_cost_factors
+from utils.db_models import get_state_cost_factors_local
 from utils.sampling import PanelUpgradeCostDistribution
 from bicep.tech_adoption import TechnologyAdoption
 
@@ -36,14 +36,17 @@ class UpgradeEstimator(TechnologyAdoption):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25):
+                 panel_safety_factor=1.25, target_states=None):
+
+        if target_states is None:
+            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
 
         super().__init__(scenario=scenario, base_year=base_year, end_year=end_year, epsilon=epsilon,
                          residential_voltage=residential_voltage,
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states)
         self.annualized = annualized_costs
         self.upgrade_lifespan = upgrade_lifespan
         self.cost_distribution = cost_distribution
@@ -111,8 +114,8 @@ class UpgradeEstimator(TechnologyAdoption):
             'upgrade_costs_base'] = commercial_costs
         
         try:
-            logger.info('Retrieving state location factors from database')
-            state_factors = get_state_cost_factors()
+            logger.info('Retrieving state location factors from local file')
+            state_factors = get_state_cost_factors_local()
             factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
             self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
             unmapped = self.buildings[self.buildings['location_factor'] == -999]
