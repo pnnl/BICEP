@@ -125,7 +125,7 @@ class CapacityEstimate:
     """
     def __init__(self, residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25):
+                 panel_safety_factor=1.25, target_states=None):
         """
 
         :param residential_voltage: Assumed voltage for residential electrical service
@@ -134,7 +134,11 @@ class CapacityEstimate:
         :param max_light_comm_amp: Current threshold for assuming medium voltage
         :param ev_charger_amp: Fixed current requirement for Level 2 EV charger
         :param panel_safety_factor: NEC panel safety of 25%
+        :param target_states: List of state abbreviations to analyze (required)
         """
+        if target_states is None:
+            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+        
         self.buildings = None
         self.building_meta = None
         self.safety_factor = panel_safety_factor
@@ -147,6 +151,8 @@ class CapacityEstimate:
         self.max_comm_amp = max_light_comm_amp
         self.med_volt = medium_voltage
 
+        self.target_states = target_states
+
         self.get_baseline_loads()
         self.get_meta()
 
@@ -156,7 +162,7 @@ class CapacityEstimate:
 
     def get_meta(self):
         logger.info('Getting stock metadata')
-        self.building_meta = query_to_df(select(StockMeta).where(StockMeta.state == 'CA'))
+        self.building_meta = query_to_df(select(StockMeta).where(StockMeta.state.in_(self.target_states)))
 
     def calculate_capacity(self):
         self.calculate_existing_capacity()
