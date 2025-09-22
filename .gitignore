@@ -3,6 +3,18 @@ sensitive_config.py
 # which is required for running the model
 *.json
 *.csv
+!data/required_input/cost_factor.csv
+
+# Ignore generated parsed inputs from database mirroring
+data/parsed_inputs/
+# But keep the directory structure
+!data/parsed_inputs/.gitkeep
+
+# Validation logs and reports
+bicep_validation.log
+validate_bicep_modes_*.log
+
+# Legacy input folder references (if any remain)
 !input_folder/required_input/cost_factor.csv
 
 # pycharm stuff

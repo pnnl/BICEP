@@ -5,6 +5,8 @@ Module to parse, align, and combined the multi-sector technology adoption foreca
 from io import BytesIO
 import json
 import os
+from pathlib import Path
+import logging
 
 import pandas as pd
 import numpy as np
@@ -12,15 +14,82 @@ import numpy as np
 from azure.storage.blob import BlobServiceClient
 
 from utils.sensitive_config import AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY
+from utils.config import BAU_BUILDING_BLOB_NAME, HIGH_BUILDING_BLOB_NAME, RAW_INPUTS_PATH, SCOUT_BAU_FILE, SCOUT_HIGH_FILE, EV_PROJECTIONS_FILE, HIERARCHY_FILE, PV_PROJECTIONS_FILE
+
+logger = logging.getLogger(__name__)
 
 container_name = 'bicep'
-bau_building_blob_name = 'scout-outputs/uec_sdshr_gcam_AEO2023Ref.json'
-high_building_blob_name = 'scout-outputs/uec_sdshr_gcam_alt-High.json'
+bau_building_blob_name = BAU_BUILDING_BLOB_NAME
+high_building_blob_name = HIGH_BUILDING_BLOB_NAME
 
 BLOB_URL = account_url = f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net"
 
 service_client = BlobServiceClient(BLOB_URL, credential=AZURE_STORAGE_KEY)
 
+
+# ============= UNIFIED MODE-AWARE FUNCTIONS =============
+
+def get_scout_forecast(scenario='bau', mode='local'):
+    """
+    Unified function to get Scout forecast data with mode switching.
+    
+    Args:
+        scenario (str): 'bau' or 'high' scenario
+        mode (str): 'local' for file processing or 'database' for Azure blob
+        
+    Returns:
+        pd.DataFrame: Formatted data ready for _get_tech_projections()
+    """
+    if mode == 'local':
+        return scout_forecast_local(scenario=scenario)
+    elif mode == 'database':
+        blob_name = bau_building_blob_name if scenario == 'bau' else high_building_blob_name
+        return scout_forecast(blob_name, scenario=scenario)
+    else:
+        raise ValueError("Mode must be 'local' or 'database'")
+
+
+def get_ev_forecast(scenario='bau', mode='local'):
+    """
+    Unified function to get EV forecast data with mode switching.
+    
+    Args:
+        scenario (str): Scenario to process
+        mode (str): 'local' for file processing or 'database' for Azure blob
+        
+    Returns:
+        pd.DataFrame: Formatted EV data
+    """
+    if mode == 'local':
+        return ev_forecast_local(scenario=scenario)
+    elif mode == 'database':
+        # TODO: Implement database EV forecast retrieval if needed
+        raise NotImplementedError("Database mode for EV forecast not yet implemented")
+    else:
+        raise ValueError("Mode must be 'local' or 'database'")
+
+
+def get_pv_forecast(scenario='mid', mode='local'):
+    """
+    Unified function to get PV forecast data with mode switching.
+    
+    Args:
+        scenario (str): Scenario to process (typically 'mid' for PV)
+        mode (str): 'local' for file processing or 'database' for Azure blob
+        
+    Returns:
+        pd.DataFrame: Formatted PV data
+    """
+    if mode == 'local':
+        return pv_forecast_local(scenario=scenario)
+    elif mode == 'database':
+        # TODO: Implement database PV forecast retrieval if needed
+        raise NotImplementedError("Database mode for PV forecast not yet implemented")
+    else:
+        raise ValueError("Mode must be 'local' or 'database'")
+
+
+# ============= LEGACY AZURE BLOB FUNCTIONS =============
 
 def scout_forecast(forecast_blob_name, scenario, metric='stock',):
     blob_client = service_client.get_blob_client(container=container_name,
@@ -204,12 +273,11 @@ def scout_forecast_local(scenario='bau'):
     Returns:
         pd.DataFrame: Formatted data ready for _get_tech_projections()
     """
-    # Define file paths
-    base_path = '/Users/faye994/code/BICEP/input_folder'
+    # Use config paths
     if scenario == 'bau':
-        file_path = os.path.join(base_path, 'uec_sdshr_gcam_AEO2023Ref.json')
+        file_path = SCOUT_BAU_FILE
     elif scenario == 'high':
-        file_path = os.path.join(base_path, 'uec_sdshr_gcam_alt-High.json')
+        file_path = SCOUT_HIGH_FILE
     else:
         raise ValueError("Scenario must be 'bau' or 'high'")
     
@@ -294,18 +362,14 @@ def ev_forecast_local(scenario='bau'):
     Returns:
         pd.DataFrame: Processed EV data in standard format
     """
-    # Load EV data
-    ev_file = os.path.join('input_folder', 'decarb_LDV_EV_county_stock_0923.csv')
-    ev_data = pd.read_csv(ev_file)
+    # Load EV data using config paths
+    ev_data = pd.read_csv(EV_PROJECTIONS_FILE)
     
     # Load hierarchy for county-to-state mapping
-    hierarchy_file = os.path.join('input_folder', 'hierarchy_utf8.csv')
-    hierarchy_data = pd.read_csv(hierarchy_file)
-    
-    print(f"EV data shape: {ev_data.shape}")
-    print(f"Hierarchy data shape: {hierarchy_data.shape}")
-    
-    # EV data is already in long format with Year, Scenario, county_fips, Class, Tech, Vehicles
+    hierarchy_data = pd.read_csv(HIERARCHY_FILE)
+
+    logger.debug(f"EV data shape: {ev_data.shape}")
+    logger.debug(f"Hierarchy data shape: {hierarchy_data.shape}")    # EV data is already in long format with Year, Scenario, county_fips, Class, Tech, Vehicles
     # Map scenario names - the data uses lowercase scenario names
     scenario_mapping = {
         'bau': 'bau',        # Direct mapping - no change needed
@@ -324,21 +388,21 @@ def ev_forecast_local(scenario='bau'):
     filtered_data = ev_data[ev_data['Scenario'] == scenario_filter].copy()
     
     if filtered_data.empty:
-        print(f"Warning: No data found for scenario '{scenario_filter}'. Available scenarios: {ev_data['Scenario'].unique()}")
+        logger.warning(f"No data found for scenario '{scenario_filter}'. Available scenarios: {ev_data['Scenario'].unique()}")
         # Use first available scenario as fallback
         scenario_filter = ev_data['Scenario'].iloc[0]
         filtered_data = ev_data[ev_data['Scenario'] == scenario_filter].copy()
-        print(f"Using fallback scenario: {scenario_filter}")
+        logger.info(f"Using fallback scenario: {scenario_filter}")
     
     # Filter for BEV (Battery Electric Vehicle) technology only
     bev_data = filtered_data[filtered_data['Tech'].str.contains('BEV', case=False, na=False)].copy()
     
     if bev_data.empty:
-        print(f"Warning: No BEV data found. Available technologies: {filtered_data['Tech'].unique()}")
+        logger.warning(f"No BEV data found. Available technologies: {filtered_data['Tech'].unique()}")
         return pd.DataFrame()  # Return empty DataFrame if no BEV data
     
-    print(f"Filtered to BEV only: {len(bev_data)} records from {len(filtered_data)} total")
-    print(f"Available vehicle technologies: {sorted(filtered_data['Tech'].unique())}")
+    logger.debug(f"Filtered to BEV only: {len(bev_data)} records from {len(filtered_data)} total")
+    logger.debug(f"Available vehicle technologies: {sorted(filtered_data['Tech'].unique())}")
     
     # Add 'p' prefix to county_fips to match hierarchy format (ensure 5-digit FIPS with leading zeros)
     bev_data['county_fips_p'] = 'p' + bev_data['county_fips'].astype(str).str.zfill(5)
@@ -355,7 +419,7 @@ def ev_forecast_local(scenario='bau'):
     if merged_data.empty:
         raise ValueError("No matching counties found between EV data and hierarchy after adding 'p' prefix")
     
-    print(f"Merged EV data shape: {merged_data.shape}")
+    logger.debug(f"Merged EV data shape: {merged_data.shape}")
     
     # Aggregate to state level (sum vehicles by state, year, tech, class)
     state_aggregated = merged_data.groupby(['st', 'Year', 'Tech', 'Class'])['Vehicles'].sum().reset_index()
@@ -379,9 +443,9 @@ def ev_forecast_local(scenario='bau'):
     # Assign unique IDs
     result_df['id'] = range(len(result_df))
     
-    print(f"Final EV data shape: {result_df.shape}")
-    print(f"Year range: {result_df['year'].min()} - {result_df['year'].max()}")
-    print(f"States: {result_df['state'].nunique()}")
+    logger.debug(f"Final EV data shape: {result_df.shape}")
+    logger.debug(f"Year range: {result_df['year'].min()} - {result_df['year'].max()}")
+    logger.debug(f"States: {result_df['state'].nunique()}")
     
     return result_df
 
@@ -396,15 +460,11 @@ def pv_forecast_local(scenario='mid'):
     Returns:
         pd.DataFrame: Formatted PV data ready for _get_tech_projections()
     """
-    base_path = '/Users/faye994/code/BICEP/input_folder'
-    
-    # Load PV data
-    pv_file = os.path.join(base_path, 'distpvcap_stscen2023_mid_case_utf8.csv')
-    pv_data = pd.read_csv(pv_file)
+    # Load PV data using config paths
+    pv_data = pd.read_csv(PV_PROJECTIONS_FILE)
     
     # Load hierarchy mapping
-    hierarchy_file = os.path.join(base_path, 'hierarchy_utf8.csv')
-    hierarchy_data = pd.read_csv(hierarchy_file)
+    hierarchy_data = pd.read_csv(HIERARCHY_FILE)
     
     # Handle column name mismatch - PV data uses 'r' column with 'p' prefix
     # Hierarchy uses '*county' column with 'p' prefix
@@ -451,6 +511,25 @@ def pv_forecast_local(scenario='mid'):
 
 
 if __name__ == '__main__':
+    # Test the updated unified mode-aware functions
+    logger.info("Testing unified mode-aware functions...")
+    
+    # Test scout forecast
+    scout_data = get_scout_forecast(scenario='bau', mode='local')
+    logger.info(f"Scout data loaded successfully - shape: {scout_data.shape}")
+    
+    # Test EV forecast  
+    ev_data = get_ev_forecast(scenario='bau', mode='local')
+    logger.info(f"EV data loaded successfully - shape: {ev_data.shape}")
+    
+    # Test PV forecast
+    pv_data = get_pv_forecast(scenario='mid', mode='local')
+    logger.info(f"PV data loaded successfully - shape: {pv_data.shape}")
+    
+    logger.info("All local mode functions working correctly!")
+
+
+    #
     # Test local processing functions
     print("Testing local data processing...")
     

@@ -8,7 +8,8 @@ User credentials are stored in ./utils/sensitive_config.py.
 
 import datetime
 import pandas as pd
-
+from pathlib import Path
+from utils.config import COST_FACTOR_FILE
 
 from loguru import logger
 
@@ -220,19 +221,15 @@ def get_state_cost_factors_local():
     """
     import os
     
-    # Get the absolute path to the CSV file
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(current_dir)  # Go up one level from utils/
-    csv_path = os.path.join(project_root, 'input_folder', 'required_input', 'cost_factor.csv')
-    
+    # Use config path for cost factor file
     try:
-        cost_factors = pd.read_csv(csv_path)
+        cost_factors = pd.read_csv(COST_FACTOR_FILE)
         # Clean up column names (remove trailing spaces)
         cost_factors.columns = cost_factors.columns.str.strip()
-        logger.info(f"Loaded state cost factors from local file: {csv_path}")
+        logger.info(f"Loaded state cost factors from local file: {COST_FACTOR_FILE}")
         return cost_factors
     except FileNotFoundError:
-        logger.error(f"Cost factor file not found at: {csv_path}")
+        logger.error(f"Cost factor file not found at: {COST_FACTOR_FILE}")
         raise
     except Exception as e:
         logger.error(f"Error reading cost factor file: {e}")

@@ -12,6 +12,7 @@ import re
 import warnings
 from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
+from utils.config import HIGH_JSON_FILE, STATED_JSON_FILE, TECHNOLOGY_MAP_FILE
 
 
 class TechnologyStockParser:
@@ -449,19 +450,15 @@ def main():
     """Main function to run the parser. please contact Bilal if you need the
     latest updates on the data sources for testing purposes as they are ignored in .gitignore"""
 
-    # File paths - JSON files are in parent directory, output in utils/
-    base_path = Path(__file__).parent.parent  # Go up to BICEP root directory
+    # File paths using config
     utils_path = Path(__file__).parent
-    high_json_path = base_path / "high.json"
-    stated_json_path = base_path / "stated.json" 
-    tech_map_path = base_path / "technology_map.csv"
     output_path = utils_path / "aggregated_technology_stock_data.csv"
     
     # Initialize parser
     parser = TechnologyStockParser(
-        str(high_json_path),
-        str(stated_json_path),
-        str(tech_map_path)
+        str(HIGH_JSON_FILE),
+        str(STATED_JSON_FILE),
+        str(TECHNOLOGY_MAP_FILE)
     )
     
     # Parse all technologies

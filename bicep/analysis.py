@@ -18,10 +18,13 @@ class BicepResults(UpgradeEstimator):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None):
+                 panel_safety_factor=1.25, target_states=None, mode='local'):
         
         if target_states is None:
             raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+        
+        # Store mode for tech projections
+        self.mode = mode
         
         super().__init__(aggregation_level=aggregation_level, annualized_costs=annualized,
                          upgrade_lifespan=upgrade_lifespan,
@@ -126,15 +129,25 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-    bau = BicepResults(scenario='bau', target_states=['CA'])
-    high = BicepResults(scenario='high', target_states=['CA'])
+    # Run database mode only
+    print("=== DATABASE MODE ===")
+    bau_db = BicepResults(scenario='bau', target_states=['CA'], mode='database') 
+    high_db = BicepResults(scenario='high', target_states=['CA'], mode='database')
 
-    print(f'total cost for bau: ${bau.total_cost:,.0f}')
-    print(f'total cost for high: ${high.total_cost:,.0f}')
-
-    print(f'total residential cost for bau: ${bau.total_residential_costs:,.0f}')
-    print(f'total residential cost for high: ${high.total_residential_costs:,.0f}')
-
-    print(f'total commercial cost for bau: ${bau.total_commercial_costs:,.0f}')
-    print(f'total commercial cost for high: ${high.total_commercial_costs:,.0f}')
+    print(f'Database - total cost for bau: ${bau_db.total_cost:,.0f}')
+    print(f'Database - total cost for high: ${high_db.total_cost:,.0f}')
+    print(f'Database - total residential cost for bau: ${bau_db.total_residential_costs:,.0f}')
+    print(f'Database - total residential cost for high: ${high_db.total_residential_costs:,.0f}')
+    print(f'Database - total commercial cost for bau: ${bau_db.total_commercial_costs:,.0f}')
+    print(f'Database - total commercial cost for high: ${high_db.total_commercial_costs:,.0f}')
+    
+    # print("\n=== LOCAL MODE ===")
+    # bau_local = BicepResults(scenario='bau', target_states=['CA'], mode='local')
+    # high_local = BicepResults(scenario='high', target_states=['CA'], mode='local')
+    # print(f'Local - total cost for bau: ${bau_local.total_cost:,.0f}')
+    # print(f'Local - total cost for high: ${high_local.total_cost:,.0f}')
+    # print(f'Local - total residential cost for bau: ${bau_local.total_residential_costs:,.0f}')
+    # print(f'Local - total residential cost for high: ${high_local.total_residential_costs:,.0f}')
+    # print(f'Local - total commercial cost for bau: ${bau_local.total_commercial_costs:,.0f}')
+    # print(f'Local - total commercial cost for high: ${high_local.total_commercial_costs:,.0f}')
 

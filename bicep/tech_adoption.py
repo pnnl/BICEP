@@ -8,15 +8,21 @@ by dGen/ReEDS.
 """
 
 from loguru import logger
+import sys
+
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
 from sqlalchemy import select
 
 import pandas as pd
 import numpy as np
+from utils.local_db_mirror import save_db_query_results
 
 from utils.db_models import AdoptionForecasts, Technologies, TechMapping,  query_to_df
 from utils.db_models import get_new_pv_data
-from utils.adoption_forecast_parsing import scout_forecast_local, ev_forecast_local, pv_forecast_local
+from utils.adoption_forecast_parsing import get_scout_forecast, get_ev_forecast, get_pv_forecast
+from utils.local_db_mirror import save_db_query_results
 from utils.sampling import sample_xstock
 from bicep.capacity import CapacityEstimate
 
@@ -26,10 +32,13 @@ class TechnologyAdoption(CapacityEstimate):
     def __init__(self, scenario, base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None):
+                 panel_safety_factor=1.25, target_states=None, mode='local'):
         # Validate required parameters
         if target_states is None:
             raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+        
+        # Store mode for tech projections
+        self.mode = mode
         
         super().__init__(residential_voltage, commercial_voltage, medium_voltage,
                          max_light_comm_amp, ev_charger_amp, panel_safety_factor, target_states)
@@ -128,12 +137,18 @@ class TechnologyAdoption(CapacityEstimate):
             logger.warning(f"No data found for target states {self.target_states}. "
                           f"Available states in data: {sorted(data['state'].unique())}")
         else:
-            logger.info(f"Filtered data for states: {self.target_states}. "
+            logger.debug(f"Filtered data for states: {self.target_states}. "
                        f"Found {len(filtered_data)} records matching target states.")
         
         return filtered_data
 
     def calculate_adoptions(self):
+        """Calculate adoption rates for all technologies using configured mode."""
+        if self.mode == 'local':
+            logger.info('Using local file processing for technology adoptions')
+        else:
+            logger.info('Using database processing for technology adoptions')
+        
         logger.info('Calculating adoption rate for EV')
         self._iterative_adoption(tech='ev', tech_project_col='represented_vehicles')
         logger.info('Calculating adoption rate for PV')
@@ -144,69 +159,119 @@ class TechnologyAdoption(CapacityEstimate):
         self._building_adoption(end_use='water heating')
 
     def _get_tech_projections(self, tech, return_difference=True, sector=None):
+        """Get technology projections using configured mode (local or database)."""
         try:
             assert tech in self.all_techs['tech_name'].to_list()
         except AssertionError:
             raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
 
-        if sector is not None:
-            projection = query_to_df(select(AdoptionForecasts).where(
-                (AdoptionForecasts.tech_name == tech) &
-                (AdoptionForecasts.sector == sector)
-            ))
+        if self.mode == 'local':
+            # Local mode: use combined data from files
+            combined_data = self.get_combined_tech_projections(scenario=self.scenario, mode=self.mode)
+            
+            # Filter for target states to match building stock scope
+            target_data = self._filter_for_target_states(combined_data)
+            
+            if target_data.empty:
+                logger.warning(f"No data found for target states {self.target_states} for technology {tech}")
+                return None, None
+            
+            # Filter for specific technology
+            if sector is not None:
+                projection = target_data[
+                    (target_data['tech_name'] == tech) & 
+                    (target_data['sector'] == sector)
+                ].copy()
+            else:
+                projection = target_data[target_data['tech_name'] == tech].copy()
+                
+            if projection.empty:
+                logger.warning(f"No data found for technology {tech} in target states {self.target_states}")
+                return None, None
+
+            # Sum across target states for this tech/sector/year/scenario
+            base_year_projection = projection[
+                (projection['year'] == self.base_year) & 
+                (projection['scenario'] == self.scenario)
+            ]['stock_projection'].sum()
+
+            end_year_projection = projection[
+                (projection['year'] == self.end_year) & 
+                (projection['scenario'] == self.scenario)
+            ]['stock_projection'].sum()
+
+            tech_growth = end_year_projection - base_year_projection
+
+            # Create state list string for logging
+            state_str = ', '.join(self.target_states)
+            logger.info(f"{state_str} {tech} projections - Base year ({self.base_year}): {base_year_projection:,.0f}, "
+                       f"End year ({self.end_year}): {end_year_projection:,.0f}, Growth: {tech_growth:,.0f}")
+
+            if return_difference:
+                return tech_growth
+            else:
+                return base_year_projection, end_year_projection
         else:
-            projection = query_to_df(select(AdoptionForecasts).where(
-                (AdoptionForecasts.tech_name == tech)
-            ))
-        if projection.empty:
-            return None, None
+            # Database mode: use original database queries
+            if sector is not None:
+                projection = query_to_df(select(AdoptionForecasts).where(
+                    (AdoptionForecasts.tech_name == tech) &
+                    (AdoptionForecasts.sector == sector)
+                ))
+            else:
+                projection = query_to_df(select(AdoptionForecasts).where(
+                    (AdoptionForecasts.tech_name == tech)
+                ))
+        
+            if projection.empty:
+                return None, None
 
-        base_year_projection = projection.loc[(
-                (projection['year'] == self.base_year) &
-                (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
+            base_year_projection = projection.loc[(
+                    (projection['year'] == self.base_year) &
+                    (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
 
-        end_year_projection = projection.loc[(
-                (projection['year'] == self.end_year) &
-                (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
+            end_year_projection = projection.loc[(
+                    (projection['year'] == self.end_year) &
+                    (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
 
-        tech_growth = end_year_projection - base_year_projection
+            tech_growth = end_year_projection - base_year_projection
 
-        if not projection.empty and projection['tech_name'].iloc[0] == 'pv':
-            new_pv_df = self._get_new_pv_projections()
-            if new_pv_df is not None and not new_pv_df.empty:
-                #Concatenate with existing pv data once pv data processing step is triggered
-                projection = pd.concat([projection, new_pv_df], ignore_index=True)
+            if not projection.empty and projection['tech_name'].iloc[0] == 'pv':
+                new_pv_df = self._get_new_pv_projections()
+                if new_pv_df is not None and not new_pv_df.empty:
+                    #Concatenate with existing pv data once pv data processing step is triggered
+                    projection = pd.concat([projection, new_pv_df], ignore_index=True)
 
-        if return_difference:
-            return tech_growth
-        else:
-            return base_year_projection, end_year_projection
+            if return_difference:
+                return tech_growth
+            else:
+                return base_year_projection, end_year_projection
 
-    def get_combined_tech_projections(self, scenario='bau', use_local=False):
+    def get_combined_tech_projections(self, scenario='bau', mode='local'):
         """
         Get combined technology projections from all sources.
         
         Args:
             scenario (str): Scenario to process ('bau' or 'high')
-            use_local (bool): If True, use local file processing instead of database
+            mode (str): 'local' for file processing or 'database' for Azure operations
             
         Returns:
             pd.DataFrame: Combined dataset with all technologies
         """
-        if use_local:
+        if mode == 'local':
             logger.info(f"Processing {scenario} scenario data locally...")
             
             # Process Scout data (tech_id 1-9)
             logger.info("Processing Scout data...")
-            scout_data = scout_forecast_local(scenario=scenario)
+            scout_data = get_scout_forecast(scenario=scenario, mode='local')
             
             # Process EV data (tech_id 10)  
             logger.info("Processing EV data...")
-            ev_data = ev_forecast_local(scenario=scenario)
+            ev_data = get_ev_forecast(scenario=scenario, mode='local')
             
             # Process PV data (tech_id 11) - always use 'mid' scenario for PV
             logger.info("Processing PV data...")
-            pv_data = pv_forecast_local(scenario='mid')
+            pv_data = get_pv_forecast(scenario='mid', mode='local')
             # Update PV scenario to match requested scenario
             pv_data['scenario'] = scenario
             
@@ -217,17 +282,60 @@ class TechnologyAdoption(CapacityEstimate):
             combined_data['id'] = range(len(combined_data))
             
             logger.info(f"Processing complete. Total records: {len(combined_data)}")
-            logger.info(f"Technologies processed: {sorted(combined_data['tech_id'].unique())}")
-            logger.info(f"States covered: {sorted(combined_data['state'].unique())}")
-            logger.info(f"Year range: {combined_data['year'].min()} - {combined_data['year'].max()}")
+            logger.debug(f"Technologies processed: {sorted(combined_data['tech_id'].unique())}")
+            logger.debug(f"States covered: {sorted(combined_data['state'].unique())}")
+            logger.debug(f"Year range: {combined_data['year'].min()} - {combined_data['year'].max()}")
+            
+            # Save local mode results to parsed_inputs for comparison
+            save_db_query_results(f'combined_tech_projections_local_{scenario}', combined_data)
+            
+            # Save individual adoption forecasts in database table format
+            save_db_query_results(f'adoption_forecasts_{scenario}', combined_data)
+            
+            # Save all equivalent database tables for local mode
+            from utils.local_db_mirror import save_database_tables
+            save_database_tables(mode='local', scenario=scenario)
             
             return combined_data
-        else:
-            # Use existing database-based approach
+        elif mode == 'database':
+            # Use database-based approach and save results for local mode
             logger.info("Using database-based technology projections")
-            # This would be the existing logic for database queries
-            # For now, return None to indicate database mode
-            return None
+            
+            try:
+                # Process Scout data using database
+                scout_data = get_scout_forecast(scenario=scenario, mode='database')
+                save_db_query_results(f'scout_data_{scenario}', scout_data)
+                
+                # For now, combine with local EV/PV since database mode not fully implemented
+                # TODO: Implement full database mode for all technologies
+                logger.warning("Database mode for EV/PV not yet implemented, using local mode")
+                ev_data = get_ev_forecast(scenario=scenario, mode='local')
+                pv_data = get_pv_forecast(scenario='mid', mode='local')
+                pv_data['scenario'] = scenario
+                
+                # Save EV and PV data as well
+                save_db_query_results(f'ev_data_{scenario}', ev_data)
+                save_db_query_results(f'pv_data_{scenario}', pv_data)
+                
+                combined_data = pd.concat([scout_data, ev_data, pv_data], ignore_index=True)
+                combined_data['id'] = range(len(combined_data))
+                
+                # Save final combined dataset
+                save_db_query_results(f'combined_tech_projections_{scenario}', combined_data)
+                
+                # Save all database tables for comparison
+                from utils.local_db_mirror import save_database_tables
+                save_database_tables(mode='database', scenario=scenario)
+                
+                logger.info(f"Database mode results saved to parsed_inputs for scenario: {scenario}")
+                return combined_data
+                
+            except Exception as e:
+                logger.error(f"Database mode failed: {e}")
+                logger.info("Falling back to local mode...")
+                return self.get_combined_tech_projections(scenario=scenario, mode='local')
+        else:
+            raise ValueError("Mode must be 'local' or 'database'")
 
     def _get_new_pv_projections(self):
         """Get additional PV projections from new data source."""
@@ -322,13 +430,11 @@ class TechnologyAdoption(CapacityEstimate):
                     adoption_col] = 1
 
     def _building_tech_conversion(self, tech_id, sector):
-        """Calculate the percentage of stock converted based on the Scout adoption forecasts"""
+        """Calculate the percentage of stock converted based on the adoption forecasts"""
         tech = self.all_techs.loc[self.all_techs['tech_id'] == tech_id, 'tech_name'].iloc[0]
-        base_year_stock, end_year_stock = self._get_tech_projections_local(tech=tech, return_difference=False, sector=sector)
+        base_year_stock, end_year_stock = self._get_tech_projections(tech=tech, return_difference=False, sector=sector)
         if (base_year_stock is None) or (base_year_stock == 0):  # No tech in sector
             return None
-        percent_converted = min(1 - (end_year_stock/base_year_stock), 1)  # rounding can result in percent > 1
-        return max(percent_converted, 0)  # percent_convert < 0 implies tech / growth
         percent_converted = min(1 - (end_year_stock/base_year_stock), 1)  # rounding can result in percent > 1
         return max(percent_converted, 0)  # percent_convert < 0 implies tech / growth
 
@@ -336,7 +442,7 @@ class TechnologyAdoption(CapacityEstimate):
 
         tech_adopted_col = f'{tech}_adopted'
 
-        tech_growth = self._get_tech_projections_local(tech=tech)
+        tech_growth = self._get_tech_projections(tech=tech)
 
         if tech == 'pv':
             tech_growth = tech_growth * 1000  # MW to kW
@@ -368,157 +474,8 @@ class TechnologyAdoption(CapacityEstimate):
         bldg.drop(columns=['temp_sum'], inplace=True)
         self.buildings = bldg.reset_index()
 
-    # NEW LOCAL PROCESSING METHODS
-    def calculate_adoptions_local(self):
-        """Main BICEP pipeline using local file processing instead of database."""
-        logger.info('Calculating adoption rate for EV using local data')
-        self._iterative_adoption_local(tech='ev', tech_project_col='represented_vehicles')
-        logger.info('Calculating adoption rate for PV using local data')
-        self._iterative_adoption_local(tech='pv', tech_project_col='pv_size_kw')
-        logger.info('Calculating adoption rate for HPs using local data')
-        self._building_adoption_local(end_use='heating')
-        logger.info('Calculating adoption rate for HPWHs using local data')
-        self._building_adoption_local(end_use='water heating')
-
-    def _iterative_adoption_local(self, tech, tech_project_col):
-        """Iterative adoption using local file processing."""
-        tech_adopted_col = f'{tech}_adopted'
-
-        # Get tech growth from local processing instead of database
-        tech_growth = self._get_tech_projections_local(tech=tech)
-
-        if tech == 'pv':
-            tech_growth = tech_growth * 1000  # MW to kW
-
-        tech_estimate = 0
-        eps = tech_growth * self.epsilon
-
-        estimate_error = tech_growth - tech_estimate
-
-        rand_buildings = self.buildings[['building_id', 'residential']].sample(frac=1)
-        rand_buildings = list(rand_buildings.itertuples(index=False, name=None))
-
-        self.buildings[tech_adopted_col] = 0
-        self.buildings.set_index(['building_id', 'residential'], inplace=True)
-
-        bldg = self.buildings  # less verbose
-
-        while estimate_error >= eps:
-            added_building = rand_buildings.pop()
-
-            bldg.loc[added_building, tech_adopted_col] = 1
-
-            bldg['temp_sum'] = bldg[tech_adopted_col] * bldg['weight'] * bldg[tech_project_col]
-
-            tech_estimate = bldg['temp_sum'].sum()
-            estimate_error = tech_growth - tech_estimate
-
-        bldg.drop(columns=['temp_sum'], inplace=True)
-        self.buildings = bldg.reset_index()
-
-    def _building_adoption_local(self, end_use):
-        """Building adoption using local file processing."""
-        if end_use == 'water heating':
-            adoption_col = f'hpwh_adopted'
-        elif end_use == 'heating':
-            adoption_col = 'hp_adopted'
-        else:
-            raise KeyError(f"End uses must be either 'water heating' or 'heating'")
-
-        self.buildings[adoption_col] = 0
-
-        # get all techs in that end use (e.g., water heating => hpwh, gas wh, fuel wh, etc.)
-        end_use_techs = self.all_techs[self.all_techs['end_use'] == end_use]
-        end_use_tech_ids = end_use_techs['tech_id'].to_list()
-
-        # get mapping from xstock fuel / end use type to Scout tech types
-        end_use_tech_mapping = self.tech_mapping[self.tech_mapping['tech_id'].isin(end_use_tech_ids)]
-        fuel_meta_col = end_use_tech_mapping['fuel_col'].iloc[0]
-        type_meta_col = end_use_tech_mapping['type_col'].iloc[0]
-
-        # loop through each tech in the end use and calculate percent converted
-        for tech_id in end_use_tech_ids:
-            tech_mapping = end_use_tech_mapping[end_use_tech_mapping['tech_id'] == tech_id]
-            xstock_fuels = tech_mapping['xstock_fuel'].unique().tolist()
-            xstock_types = tech_mapping['xstock_type'].unique().tolist()
-            stock_with_tech = self.building_meta.loc[((self.building_meta[fuel_meta_col].isin(xstock_fuels)) &
-                                                      (self.building_meta[type_meta_col].isin(xstock_types)))]
-            res_stock = stock_with_tech[stock_with_tech['residential'] == 1]
-            com_stock = stock_with_tech[stock_with_tech['residential'] == 0]
-
-            residential_converted = self._building_tech_conversion_local(tech_id=tech_id, sector='residential')
-            commercial_converted = self._building_tech_conversion_local(tech_id=tech_id, sector='commercial')
-
-            if residential_converted is not None:
-                res_stock_converted = res_stock['building_id'].sample(frac=residential_converted).to_list()
-                self.buildings.loc[
-                    ((self.buildings['residential'] == 1) & (self.buildings['building_id'].isin(res_stock_converted))),
-                    adoption_col] = 1
-            if commercial_converted is not None:
-                com_stock_converted = com_stock['building_id'].sample(frac=commercial_converted).to_list()
-                self.buildings.loc[
-                    ((self.buildings['residential'] == 0) & (self.buildings['building_id'].isin(com_stock_converted))),
-                    adoption_col] = 1
-
-    def _building_tech_conversion_local(self, tech_id, sector):
-        """Calculate the percentage of stock converted using local file processing."""
-        tech = self.all_techs.loc[self.all_techs['tech_id'] == tech_id, 'tech_name'].iloc[0]
-        base_year_stock, end_year_stock = self._get_tech_projections_local(tech=tech, return_difference=False, sector=sector)
-        if (base_year_stock is None) or (base_year_stock == 0):  # No tech in sector
-            return None
-        percent_converted = min(1 - (end_year_stock/base_year_stock), 1)  # rounding can result in percent > 1
-        return max(percent_converted, 0)  # percent_convert < 0 implies tech / growth
-
-    def _get_tech_projections_local(self, tech, return_difference=True, sector=None):
-        """Get technology projections using local file processing instead of database."""
-        # Get combined data from local processing
-        combined_data = self.get_combined_tech_projections(scenario=self.scenario, use_local=True)
-        
-        # Filter for target states to match building stock scope
-        target_data = self._filter_for_target_states(combined_data)
-        
-        if target_data.empty:
-            logger.warning(f"No data found for target states {self.target_states} for technology {tech}")
-            return None, None
-        
-        # Filter for specific technology
-        if sector is not None:
-            projection = target_data[
-                (target_data['tech_name'] == tech) & 
-                (target_data['sector'] == sector)
-            ].copy()
-        else:
-            projection = target_data[target_data['tech_name'] == tech].copy()
-            
-        if projection.empty:
-            logger.warning(f"No data found for technology {tech} in target states {self.target_states}")
-            return None, None
-
-        # Sum across target states for this tech/sector/year/scenario
-        base_year_projection = projection[
-            (projection['year'] == self.base_year) & 
-            (projection['scenario'] == self.scenario)
-        ]['stock_projection'].sum()
-
-        end_year_projection = projection[
-            (projection['year'] == self.end_year) & 
-            (projection['scenario'] == self.scenario)
-        ]['stock_projection'].sum()
-
-        tech_growth = end_year_projection - base_year_projection
-
-        # Create state list string for logging
-        state_str = ', '.join(self.target_states)
-        logger.info(f"{state_str} {tech} projections - Base year ({self.base_year}): {base_year_projection:,.0f}, "
-                   f"End year ({self.end_year}): {end_year_projection:,.0f}, Growth: {tech_growth:,.0f}")
-
-        if return_difference:
-            return tech_growth
-        else:
-            return base_year_projection, end_year_projection
-
 
 if __name__ == '__main__':
     # used for testing
-    tec = TechnologyAdoption(scenario='high', target_states=['CA'])
+    tec = TechnologyAdoption(scenario='high', target_states=['CA'], mode='local')
     tec.calculate_adoptions()

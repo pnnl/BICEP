@@ -36,7 +36,7 @@ class UpgradeEstimator(TechnologyAdoption):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None):
+                 panel_safety_factor=1.25, target_states=None, mode='local'):
 
         if target_states is None:
             raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
@@ -46,7 +46,7 @@ class UpgradeEstimator(TechnologyAdoption):
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor, target_states=target_states)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states, mode=mode)
         self.annualized = annualized_costs
         self.upgrade_lifespan = upgrade_lifespan
         self.cost_distribution = cost_distribution
