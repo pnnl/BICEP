@@ -55,7 +55,7 @@ def get_ev_forecast(scenario='bau', mode='local'):
     
     Args:
         scenario (str): Scenario to process
-        mode (str): 'local' for file processing or 'database' for Azure blob
+        mode (str): 'local' for file processing or 'database' for database queries
         
     Returns:
         pd.DataFrame: Formatted EV data
@@ -63,8 +63,7 @@ def get_ev_forecast(scenario='bau', mode='local'):
     if mode == 'local':
         return ev_forecast_local(scenario=scenario)
     elif mode == 'database':
-        # TODO: Implement database EV forecast retrieval if needed
-        raise NotImplementedError("Database mode for EV forecast not yet implemented")
+        return ev_forecast_database(scenario=scenario)
     else:
         raise ValueError("Mode must be 'local' or 'database'")
 
@@ -75,7 +74,7 @@ def get_pv_forecast(scenario='mid', mode='local'):
     
     Args:
         scenario (str): Scenario to process (typically 'mid' for PV)
-        mode (str): 'local' for file processing or 'database' for Azure blob
+        mode (str): 'local' for file processing or 'database' for Azure operations
         
     Returns:
         pd.DataFrame: Formatted PV data
@@ -83,8 +82,7 @@ def get_pv_forecast(scenario='mid', mode='local'):
     if mode == 'local':
         return pv_forecast_local(scenario=scenario)
     elif mode == 'database':
-        # TODO: Implement database PV forecast retrieval if needed
-        raise NotImplementedError("Database mode for PV forecast not yet implemented")
+        return pv_forecast_database(scenario=scenario)
     else:
         raise ValueError("Mode must be 'local' or 'database'")
 
@@ -450,6 +448,41 @@ def ev_forecast_local(scenario='bau'):
     return result_df
 
 
+def ev_forecast_database(scenario='bau'):
+    """
+    Process EV data from database adoption-forecasts table.
+    
+    Args:
+        scenario (str): Scenario name ('bau' or 'high')
+        
+    Returns:
+        pd.DataFrame: Formatted EV data ready for _get_tech_projections()
+    """
+    from utils.db_models import query_to_df
+    
+    # Query EV data from adoption-forecasts table
+    ev_query = f"""
+    SELECT tech_id, tech_name, sector, year, scenario, state, stock_projection, projection_units
+    FROM "adoption-forecasts"
+    WHERE tech_name = 'ev' AND scenario = '{scenario}'
+    """
+    
+    ev_data = query_to_df(ev_query)
+    
+    if ev_data.empty:
+        logger.warning(f"No EV data found in database for scenario: {scenario}")
+        return pd.DataFrame()
+    
+    # Add ID column
+    ev_data['id'] = range(len(ev_data))
+    
+    logger.debug(f"Retrieved {len(ev_data)} EV records from database for scenario: {scenario}")
+    logger.debug(f"Year range: {ev_data['year'].min()} - {ev_data['year'].max()}")
+    logger.debug(f"States: {ev_data['state'].nunique()}")
+    
+    return ev_data
+
+
 def pv_forecast_local(scenario='mid'):
     """
     Process PV data locally from CSV file and aggregate to state level.
@@ -499,6 +532,61 @@ def pv_forecast_local(scenario='mid'):
         'year': aggregated_data['year'].astype(int),
         'scenario': scenario,
         'state': aggregated_data['st'],
+        'stock_projection': aggregated_data['stock_projection'],
+        'projection_units': 'MW'
+    })
+    
+    return result
+
+
+def pv_forecast_database(scenario='mid'):
+    """
+    Process PV data from database and aggregate to state level.
+    
+    Args:
+        scenario (str): Scenario name (typically 'mid' for PV data)
+        
+    Returns:
+        pd.DataFrame: Formatted PV data ready for _get_tech_projections()
+    """
+    from utils.db_models import get_new_pv_data
+    
+    # Get PV data and hierarchy from database
+    pv_data, hierarchy_data = get_new_pv_data()
+    
+    # Handle column name mismatch - PV data uses 'r' column with 'p' prefix
+    # Hierarchy uses 'county_id' column  
+    # Create matching column names
+    pv_data = pv_data.rename(columns={'r': 'county_id'})
+    
+    # Merge with hierarchy to get state mapping
+    merged_data = pd.merge(pv_data, hierarchy_data[['county_id', 'state']], 
+                          on='county_id', how='inner')
+    
+    # Get year columns
+    year_cols = [col for col in merged_data.columns 
+                if str(col).isdigit() and 2010 <= int(col) <= 2050]
+    
+    # Convert to long format
+    long_data = merged_data.melt(
+        id_vars=['county_id', 'state'],
+        value_vars=year_cols,
+        var_name='year',
+        value_name='stock_projection'
+    )
+    
+    # Aggregate by state and year - sum all county data within each state
+    aggregated_data = long_data.groupby(['state', 'year'])['stock_projection'].sum().reset_index()
+    
+    # Format for _get_tech_projections
+    result = pd.DataFrame({
+        'id': range(len(aggregated_data)),
+        'tech_id': 11,  # PV tech_id
+        'tech_name': 'pv',
+        'sector': 'pv',
+        'year': aggregated_data['year'].astype(int),
+        'scenario': scenario,
+        'state': aggregated_data['state'],
         'stock_projection': aggregated_data['stock_projection'],
         'projection_units': 'MW'
     })

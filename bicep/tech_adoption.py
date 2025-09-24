@@ -57,6 +57,9 @@ class TechnologyAdoption(CapacityEstimate):
         self.all_techs = query_to_df(select(Technologies))
         self.tech_mapping = query_to_df(select(TechMapping))
         
+        # Cache for combined tech projections to avoid reloading data for each technology
+        self._combined_data_cache = {}
+        
         # Create state name mapping for technology forecast data
         self.state_name_mapping = self._create_state_name_mapping()
 
@@ -166,8 +169,15 @@ class TechnologyAdoption(CapacityEstimate):
             raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
 
         if self.mode == 'local':
-            # Local mode: use combined data from files
-            combined_data = self.get_combined_tech_projections(scenario=self.scenario, mode=self.mode)
+            # Local mode: use combined data from files (with caching)
+            cache_key = f"{self.scenario}_{self.mode}"
+            if cache_key not in self._combined_data_cache:
+                logger.info(f"Loading combined tech projections for {self.scenario} scenario (will be cached)")
+                self._combined_data_cache[cache_key] = self.get_combined_tech_projections(scenario=self.scenario, mode=self.mode)
+            else:
+                logger.debug(f"Using cached combined tech projections for {self.scenario} scenario")
+                
+            combined_data = self._combined_data_cache[cache_key]
             
             # Filter for target states to match building stock scope
             target_data = self._filter_for_target_states(combined_data)
@@ -224,15 +234,41 @@ class TechnologyAdoption(CapacityEstimate):
                 ))
         
             if projection.empty:
-                return None, None
+                logger.warning(f"No data found for technology {tech} in database")
+                if return_difference:
+                    return None
+                else:
+                    return None, None
 
-            base_year_projection = projection.loc[(
-                    (projection['year'] == self.base_year) &
-                    (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
+            # Filter for base year data - ALWAYS use 'bau' scenario for base year like original BICEP v1
+            base_year_data = projection.loc[
+                (projection['year'] == self.base_year) & 
+                (projection['scenario'] == 'bau')  # Always use 'bau' for base year
+            ]
+            
+            if base_year_data.empty:
+                logger.warning(f"No bau scenario data found for {tech} in {self.base_year}")
+                if return_difference:
+                    return None
+                else:
+                    return None, None
+                
+            base_year_projection = base_year_data['stock_projection'].iloc[0]
 
-            end_year_projection = projection.loc[(
-                    (projection['year'] == self.end_year) &
-                    (projection['scenario'] == self.scenario)), 'stock_projection'].iloc[0]
+            # Filter for end year data
+            end_year_data = projection.loc[
+                (projection['year'] == self.end_year) & 
+                (projection['scenario'] == self.scenario)
+            ]
+            
+            if end_year_data.empty:
+                logger.warning(f"No {self.scenario} scenario data found for {tech} in {self.end_year}")
+                if return_difference:
+                    return None
+                else:
+                    return None, None
+                
+            end_year_projection = end_year_data['stock_projection'].iloc[0]
 
             tech_growth = end_year_projection - base_year_projection
 
@@ -303,15 +339,18 @@ class TechnologyAdoption(CapacityEstimate):
             
             try:
                 # Process Scout data using database
+                logger.info("Fetching Scout data from database...")
                 scout_data = get_scout_forecast(scenario=scenario, mode='database')
+                logger.info(f"Successfully retrieved {len(scout_data)} Scout records from database")
                 save_db_query_results(f'scout_data_{scenario}', scout_data)
                 
-                # For now, combine with local EV/PV since database mode not fully implemented
-                # TODO: Implement full database mode for all technologies
-                logger.warning("Database mode for EV/PV not yet implemented, using local mode")
-                ev_data = get_ev_forecast(scenario=scenario, mode='local')
-                pv_data = get_pv_forecast(scenario='mid', mode='local')
+                # Use database for both PV and EV data
+                logger.info("Processing PV data from database...")
+                pv_data = get_pv_forecast(scenario='mid', mode='database')
                 pv_data['scenario'] = scenario
+                
+                logger.info("Processing EV data from database...")
+                ev_data = get_ev_forecast(scenario=scenario, mode='database')
                 
                 # Save EV and PV data as well
                 save_db_query_results(f'ev_data_{scenario}', ev_data)
@@ -331,7 +370,10 @@ class TechnologyAdoption(CapacityEstimate):
                 return combined_data
                 
             except Exception as e:
-                logger.error(f"Database mode failed: {e}")
+                logger.error(f"Database mode failed with error: {str(e)}")
+                logger.error(f"Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
                 logger.info("Falling back to local mode...")
                 return self.get_combined_tech_projections(scenario=scenario, mode='local')
         else:
@@ -443,6 +485,13 @@ class TechnologyAdoption(CapacityEstimate):
         tech_adopted_col = f'{tech}_adopted'
 
         tech_growth = self._get_tech_projections(tech=tech)
+        
+        # Handle case where no data is available
+        if tech_growth is None:
+            logger.warning(f"No growth data available for {tech}, skipping adoption calculation")
+            # Set default column with zero adoption
+            self.buildings[tech_adopted_col] = 0
+            return
 
         if tech == 'pv':
             tech_growth = tech_growth * 1000  # MW to kW

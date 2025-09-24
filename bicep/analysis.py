@@ -4,6 +4,7 @@ Analysis of the BICEP model run results.
 
 import plotly.express as px
 import plotly.graph_objs as go
+from loguru import logger
 
 from bicep.upgrades import UpgradeEstimator
 from utils.sampling import PanelUpgradeCostDistribution
@@ -35,9 +36,16 @@ class BicepResults(UpgradeEstimator):
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor, target_states=target_states)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states, mode=mode)
 
         self.calculate_costs()
+        
+        # Save database tables if in database mode
+        if mode == 'database':
+            from utils.local_db_mirror import save_database_tables
+            logger.info(f"Saving database tables for {scenario} scenario analysis")
+            save_database_tables(mode='database', scenario=scenario)
+            logger.info(f"Database tables saved for {scenario} scenario")
         self._capacity_requirement_cols = ['ev_req_capacity_amp', 'pv_req_capacity_amp',
                                            'hp_req_capacity_amp', 'hpwh_req_capacity_amp']
 
@@ -129,25 +137,26 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-    # Run database mode only
-    print("=== DATABASE MODE ===")
-    bau_db = BicepResults(scenario='bau', target_states=['CA'], mode='database') 
-    high_db = BicepResults(scenario='high', target_states=['CA'], mode='database')
+                        #Run database mode only
+    # print("=== DATABASE MODE ===")
+    # bau_db = BicepResults(scenario='bau', target_states=['CA'], mode='database') 
+    # high_db = BicepResults(scenario='high', target_states=['CA'], mode='database')
 
-    print(f'Database - total cost for bau: ${bau_db.total_cost:,.0f}')
-    print(f'Database - total cost for high: ${high_db.total_cost:,.0f}')
-    print(f'Database - total residential cost for bau: ${bau_db.total_residential_costs:,.0f}')
-    print(f'Database - total residential cost for high: ${high_db.total_residential_costs:,.0f}')
-    print(f'Database - total commercial cost for bau: ${bau_db.total_commercial_costs:,.0f}')
-    print(f'Database - total commercial cost for high: ${high_db.total_commercial_costs:,.0f}')
-    
-    # print("\n=== LOCAL MODE ===")
-    # bau_local = BicepResults(scenario='bau', target_states=['CA'], mode='local')
-    # high_local = BicepResults(scenario='high', target_states=['CA'], mode='local')
-    # print(f'Local - total cost for bau: ${bau_local.total_cost:,.0f}')
-    # print(f'Local - total cost for high: ${high_local.total_cost:,.0f}')
-    # print(f'Local - total residential cost for bau: ${bau_local.total_residential_costs:,.0f}')
-    # print(f'Local - total residential cost for high: ${high_local.total_residential_costs:,.0f}')
-    # print(f'Local - total commercial cost for bau: ${bau_local.total_commercial_costs:,.0f}')
-    # print(f'Local - total commercial cost for high: ${high_local.total_commercial_costs:,.0f}')
+    # print(f'Database - total cost for bau: ${bau_db.total_cost:,.0f}')
+    # print(f'Database - total cost for high: ${high_db.total_cost:,.0f}')
+    # print(f'Database - total residential cost for bau: ${bau_db.total_residential_costs:,.0f}')
+    # print(f'Database - total residential cost for high: ${high_db.total_residential_costs:,.0f}')
+    # print(f'Database - total commercial cost for bau: ${bau_db.total_commercial_costs:,.0f}')
+    # print(f'Database - total commercial cost for high: ${high_db.total_commercial_costs:,.0f}')
+
+                        #Run local mode only
+    print("\n=== LOCAL MODE ===")
+    bau_local = BicepResults(scenario='bau', target_states=['CA'], mode='local')
+    high_local = BicepResults(scenario='high', target_states=['CA'], mode='local')
+    print(f'Local - total cost for bau: ${bau_local.total_cost:,.0f}')
+    print(f'Local - total cost for high: ${high_local.total_cost:,.0f}')
+    print(f'Local - total residential cost for bau: ${bau_local.total_residential_costs:,.0f}')
+    print(f'Local - total residential cost for high: ${high_local.total_residential_costs:,.0f}')
+    print(f'Local - total commercial cost for bau: ${bau_local.total_commercial_costs:,.0f}')
+    print(f'Local - total commercial cost for high: ${high_local.total_commercial_costs:,.0f}')
 
