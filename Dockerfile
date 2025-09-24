@@ -6,9 +6,14 @@ FROM bicep-base
 COPY . /bicep
 WORKDIR /bicep
 
+# Install BICEP as a package
+RUN pip install .
+
 
 ### deployment commands
 # docker build -t bicep .
+### build for linux image if on apple silicon
+# docker buildx build --platform linux/amd64 -t bicep .
 # az login
 # az acr login --name bicepContainers
 # docker tag bicep bicepcontainers.azurecr.io/bicep:latest
