@@ -58,7 +58,7 @@ def write_to_db(peak_load_data):
         logger.error(f"Data not inserted in db for: {peak_load_data.building_id}")
 
 
-def parse_parquet_file(pre_signed_url):
+def parse_parquet_file(pre_signed_url, state):
     building_id = pre_signed_url.split('/')[-1].split('.')[0]
     file_path = pre_signed_url.split('.com/')[1]
     release = file_path.split('timeseries_individual')[0].split('us-building-stock/')[1]
@@ -73,9 +73,9 @@ def parse_parquet_file(pre_signed_url):
 
     peak_load_data = PeakLoad(building_id=int(building_id.split('-')[0]),
                               upgrade=int(building_id.split('-')[1]),
-                              max_elec_consumption_kwh=max_load[load_col],
+                              max_elec_consumption_kwh=float(max_load[load_col]),
                               timestamp=max_load['timestamp'],
-                              state='CA',
+                              state=state,
                               file_path=file_path,
                               release=release,
                               residential=residential)
@@ -98,10 +98,14 @@ def main():
     arg_parser.add_argument("--url", type=str,
                             help="URL of the parquet file to be parsed")
 
+    arg_parser.add_argument("--state", type=str,
+                            help="The state the building models represent")
+
     args = arg_parser.parse_args()
     file_path = args.url
+    state = args.state
 
-    parse_parquet_file(file_path)
+    parse_parquet_file(file_path, state)
 
 
 if __name__ == '__main__':
