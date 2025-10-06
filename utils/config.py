@@ -49,7 +49,21 @@ HIERARCHY_FILE = RAW_INPUTS_PATH / 'hierarchy.csv'
 TECHNOLOGY_MAP_FILE = BICEP_ROOT / 'technology_map.csv'
 
 # Required input files
+# todo: add any and all required input files to GitHub release (BICEP_DATA_ASSETS)
 COST_FACTOR_FILE = REQUIRED_INPUT_PATH / 'cost_factor.csv'
+
+#todo: Bilal add logic to download if not already downloaded (just the .db)
+BICEP_DATA_ASSETS = ['https://github.com/pnnl/BICEP/releases/download/v0.1-data/adoption-forecasts.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/load-diff.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/peak-load.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/scout-xstock-tech-mapping.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/stock-meta.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/technologies.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/upgrades.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/bicep.x-stock.db'
+                     ]
+
+
 
 # ============= OUTPUT FILES =============
 
