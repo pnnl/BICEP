@@ -38,6 +38,9 @@ class UpgradeEstimator(TechnologyAdoption):
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
                  panel_safety_factor=1.25, target_states=None, mode='local'):
 
+        # todo: make the default behavior target states = all possible states. add validation to make sure any
+        #  supplied states are valid (e.g., assert(state in possible_states_list) so if a user specifies "France" as
+        #  a state, it fails.
         if target_states is None:
             raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
 
