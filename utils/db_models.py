@@ -18,22 +18,34 @@ from sqlalchemy.pool import NullPool
 
 from sqlalchemy.types import Integer, String, Float
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
-from sqlalchemy.dialects.mssql import DATETIME2
 
 from utils.sensitive_config import sql_server_admin, sql_server_pass
+from utils.config import DATA_LOCATION, DATA_DIR
 
 ENABLE_TIMING = False
 LOG_LEVEL = 'INFO'
 
-dialect_driver = 'mssql+pymssql'
-user_creds = f'{sql_server_admin}:{sql_server_pass}'
-host_port = 'bicep-sql-server.database.windows.net:1433'
 DATABASES = ['x-stock', ]
 
 
 def create_engine(database):
-    database_url = f'{dialect_driver}://{user_creds}@{host_port}/{database}'
-    return sqlalchemy.create_engine(database_url)
+    if DATA_LOCATION == 'LOCAL':
+        sqlite_file = DATA_DIR / 'bicep.x-stock.db'
+        if not sqlite_file.exists():
+            raise FileNotFoundError()
+        database_url = f'sqlite:///{sqlite_file}'
+        logger.info(f'Connecting to database: {database_url}')
+        return sqlalchemy.create_engine(database_url)
+
+    elif DATA_LOCATION == 'PNNL Database':
+        dialect_driver = 'mssql+pymssql'
+        user_creds = f'{sql_server_admin}:{sql_server_pass}'
+        host_port = 'bicep-sql-server.database.windows.net:1433'
+        database_url = f'{dialect_driver}://{user_creds}@{host_port}/{database}'
+        logger.info(f'Connecting to database: {database_url}')
+        return sqlalchemy.create_engine(database_url)
+    else:
+        raise ValueError(f'Invalid data location: {DATA_LOCATION}. Must be "PNNL Database" or "LOCAL"')
 
 
 def validate_database(database):
@@ -55,7 +67,7 @@ class PeakLoad(Base):
     building_id: Mapped[int] = mapped_column(Integer,
                                              primary_key=True)
     max_elec_consumption_kwh: Mapped[float]
-    timestamp: Mapped[datetime.datetime] = mapped_column(DATETIME2())
+    timestamp: Mapped[datetime.datetime] = mapped_column(sqlalchemy.DateTime())
     upgrade: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
     state: Mapped[str]
     file_path: Mapped[str]
@@ -193,7 +205,8 @@ def query_to_df(query, database='x-stock', params=None):
                                          con=engines[database],
                                          params=params)
                 return data
-            except sqlalchemy.exc.OperationalError:
+            except sqlalchemy.exc.OperationalError as error:
+                logger.debug(error)
                 continue
 
         raise ConnectionError("Connection to the database cannot be established. "
@@ -265,4 +278,13 @@ def get_new_pv_data():
 
 
 if __name__ == '__main__':
-    create_lookup_tables()
+    # create_lookup_tables()
+    from sqlalchemy import select
+    DATA_LOCATION = 'LOCAL'
+
+
+    query = select(PeakLoad).where(PeakLoad.upgrade == 0,
+                                   PeakLoad.residential == 1,
+                                   PeakLoad.state == 'PA')
+    df = query_to_df(query)
+
