@@ -1,21 +1,10 @@
 sensitive_config.py
-# ignore user configuration file except cost factor file
-# which is required for running the model
-*.json
-*.csv
-!data/required_input/cost_factor.csv
 
-# Ignore generated parsed inputs from database mirroring
-data/parsed_inputs/
-# But keep the directory structure
-!data/parsed_inputs/.gitkeep
+# Ignore data files - stored as assets in GitHub release
+data/
 
-# Validation logs and reports
-bicep_validation.log
-validate_bicep_modes_*.log
-
-# Legacy input folder references (if any remain)
-!input_folder/required_input/cost_factor.csv
+# Ignore logs
+*.log
 
 # pycharm stuff
 .idea/
