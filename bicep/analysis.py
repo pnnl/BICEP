@@ -1,7 +1,7 @@
 """
 Analysis of the BICEP model run results.
 """
-
+import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 
@@ -32,7 +32,7 @@ class BicepResults(UpgradeEstimator):
 
         self.calculate_costs()
         self._capacity_requirement_cols = ['ev_req_capacity_amp', 'pv_req_capacity_amp',
-                                           'hp_req_capacity_amp', 'hpwh_req_capacity_amp']
+                                           'hp_req_capacity_amp', 'hpwh_req_capacity_amp', 'mhdv_ev_req_capacity_amp']
 
     def requirements_by_tech(self, residential=1):
         dataset = self._filter_dataset(residential)
@@ -52,14 +52,37 @@ class BicepResults(UpgradeEstimator):
                               "pv_req_capacity_amp": "PV",
                               "ev_req_capacity_amp": "EV",
                               "hp_req_capacity_amp": "HP",
-                              "hpwh_req_capacity_amp": "HP WH"})
+                              "hpwh_req_capacity_amp": "HP WH",
+                               "mhdv_ev_req_capacity_amp": "MHDV EV"})
+
         plot_cols = ['PV', 'EV', 'HP', 'HP WH']
+
+        # Charger capacity for commercial MHDV EVs (residential=0)
+        commercial_dataset = self._filter_dataset(residential=0)
+        plot_df_comm = commercial_dataset.rename(columns={
+            "mhdv_ev_req_capacity_amp": "MHDV EV"
+        })
+
+        print(commercial_dataset.columns.tolist())
+
+
         if cdf:
             cdf = px.ecdf(data_frame=plot_df, x=plot_cols)
+
+            # # Create an ECDF figure for MHDV EV using the same px.ecdf method
+            # mhdv_cdf = px.ecdf(data_frame=plot_df_comm, x=['MHDV EV'])
+            #
+            # # Add the MHDV EV trace(s) from this separate ECDF plot to your main ECDF plot
+            # for trace in mhdv_cdf.data:
+            #     trace.name = "MHDV EV"  # legend name
+            #     cdf.add_trace(trace)
+
             cdf.update_layout(title='Additional capacity requirements by tech',
                               xaxis_title="Required Capacity [amps]",
                               yaxis_title="Percentile of Tech",
-                              legend_title="Technologies",)
+                              legend_title="Technologies"
+
+                              )
             cdf.show()
         else:
             histo = go.Figure()
@@ -77,13 +100,83 @@ class BicepResults(UpgradeEstimator):
             histo.add_trace(go.Histogram(x=hpwh_cap, name="HP WH",
                                          histnorm='percent', nbinsx=100))
 
+
+
+            # histo.add_trace(go.Histogram(x=commercial_dataset['mhdv_ev_req_capacity_amp'],name='MHDV EV',
+            #                             histnorm='percent',nbinsx=100))
+
             histo.update_layout(title='Additional capacity requirements by tech',
                                 xaxis_title="Required Capacity [amps]",
                                 yaxis_title="Percentile of Tech",
                                 legend_title="Technologies",
-                                barmode='overlay')
+                                barmode='overlay'
+                                )
+
             histo.update_traces(opacity=0.75)
+
             histo.show()
+
+    import plotly.graph_objects as go
+    import plotly.express as px
+
+    def plot_drivers_mhdv(self, residential=1, cdf=True):
+        commercial_dataset = self._filter_dataset(residential=0)
+        plot_df_comm = commercial_dataset.rename(columns={
+            "mhdv_ev_req_capacity_amp": "MHDV EV"
+        })
+
+        voltages = sorted(plot_df_comm['assumed_volt'].unique())
+        colors = ['blue', 'red']
+        color_map = {v: colors[i % len(colors)] for i, v in enumerate(voltages)}
+
+        if cdf:
+            fig = go.Figure()
+            for v in voltages:
+                subset = plot_df_comm[plot_df_comm['assumed_volt'] == v]
+                x_sorted = np.sort(subset['MHDV EV'])
+                y_vals = np.linspace(0, 1, len(x_sorted))
+                fig.add_trace(go.Scatter(
+                    x=x_sorted,
+                    y=y_vals,
+                    mode='lines',
+                    name=f'{v} V',
+                    line=dict(color=color_map[v])
+                ))
+
+            fig.update_layout(
+                title='Additional capacity requirements by tech',
+                xaxis_title="Required Capacity [amps]",
+                yaxis_title="Percentile of Tech",
+                legend_title="Voltage Level",
+                xaxis_type="log"
+            )
+            fig.write_image("mhdv_ev_capacity.png", width=1000, height=600, scale=3)
+            fig.show()
+
+        else:
+            fig = go.Figure()
+            for v in voltages:
+                subset = plot_df_comm[plot_df_comm['assumed_volt'] == v]
+                fig.add_trace(go.Histogram(
+                    x=subset['MHDV EV'],
+                    name=f"{v} V",
+                    histnorm='percent',
+                    nbinsx=100,
+                    opacity=0.7,
+                    marker_color=color_map[v]
+                ))
+
+            fig.update_layout(
+                title='Additional capacity requirements by tech',
+                xaxis_title="Required Capacity [amps]",
+                yaxis_title="Percent of Buildings",
+                legend_title="Voltage Level",
+                barmode='overlay',
+                xaxis_type="log"
+            )
+            fig.write_image("mhdv_ev_capacity.png", width=1000, height=600, scale=3)
+
+            fig.show()
 
     def plot_peak_amp_distribution(self, residential=1):
         dataset = self._filter_dataset(residential=residential)
@@ -123,14 +216,18 @@ class BicepResults(UpgradeEstimator):
 
 if __name__ == '__main__':
     bau = BicepResults(scenario='bau')
-    high = BicepResults(scenario='high')
+    # high = BicepResults(scenario='high')
+
+    bau.plot_drivers()
+    bau.plot_drivers_mhdv()
+    # high.plot_drivers()
 
     print(f'total cost for bau: ${bau.total_cost:,.0f}')
-    print(f'total cost for high: ${high.total_cost:,.0f}')
+    # print(f'total cost for high: ${high.total_cost:,.0f}')
 
     print(f'total residential cost for bau: ${bau.total_residential_costs:,.0f}')
-    print(f'total residential cost for high: ${high.total_residential_costs:,.0f}')
+    # print(f'total residential cost for high: ${high.total_residential_costs:,.0f}')
 
     print(f'total commercial cost for bau: ${bau.total_commercial_costs:,.0f}')
-    print(f'total commercial cost for high: ${high.total_commercial_costs:,.0f}')
+    # print(f'total commercial cost for high: ${high.total_commercial_costs:,.0f}')
 
