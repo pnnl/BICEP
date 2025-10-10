@@ -36,10 +36,53 @@ header_pages:
   - api-reference.md
   - jekyll-sitemap
 
+# Just the Docs theme settings
+color_scheme: dark
+search_enabled: true
+search_button: false
+
+# Navigation structure
+nav_order: 1  # for pages
+
+# Footer
+footer_content: >-
+  <div class="disclaimer" style="font-size: 0.6rem; color: #5c5962;">
+  <h4>Notice</h4>
+  <p>This material was prepared as an account of work sponsored by an agency of the United States Government. Neither the United States Government nor the United States Department of Energy, nor Battelle, nor any of their employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness or any information, apparatus, product, software, or process disclosed, or represents that its use would not infringe privately owned rights.</p>
+  <p>Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement, recommendation, or favoring by the United States Government or any agency thereof, or Battelle Memorial Institute. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.</p>
+  <div style="text-align: center; font-size: 0.7rem; margin-top: 1rem;">
+    <strong>PACIFIC NORTHWEST NATIONAL LABORATORY</strong><br>
+    <em>operated by</em><br>
+    <strong>BATTELLE</strong><br>
+    <em>for the</em><br>
+    <strong>UNITED STATES DEPARTMENT OF ENERGY</strong><br>
+    <em>under Contract DE-AC05-76RL01830</em>
+  </div>
+  
+  
+  <p>Copyright &copy; 2024 Pacific Northwest National Laboratory. Distributed under the <a href="https://github.com/pnnl/BICEP/blob/main/LICENSE.txt">BSD 2-Clause License</a>.</p>
+  </div>
+
+# Aux links (top right)
+aux_links:
+  "BICEP on GitHub":
+    - "//github.com/pnnl/BICEP"
+
+# Heading anchors
+heading_anchors: true
+
+# Code highlighting
+highlighter: rouge
+
 # Build settings
-theme: minima
+#theme: minima
+theme: just-the-docs
+#remote_theme: just-the-docs/just-the-docs
+
 plugins:
   - jekyll-feed
+#  - jekyll-remote-theme
+  - jekyll-sitemap
 
 # Exclude from processing.
 # The following items will not be processed, by default.
@@ -50,13 +93,13 @@ plugins:
 # their entries' file path in the `include:` list.
 #
 exclude:
-# - .sass-cache/
-# - .jekyll-cache/
-# - gemfiles/
+ - .sass-cache/
+ - .jekyll-cache/
+ - gemfiles/
  - Gemfile
  - Gemfile.lock
-# - node_modules/
-# - vendor/bundle/
-# - vendor/cache/
-# - vendor/gems/
-# - vendor/ruby/
+ - node_modules/
+ - vendor/bundle/
+ - vendor/cache/
+ - vendor/gems/
+ - vendor/ruby/
