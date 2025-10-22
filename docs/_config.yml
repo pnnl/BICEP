@@ -37,7 +37,7 @@ header_pages:
   - jekyll-sitemap
 
 # Just the Docs theme settings
-color_scheme: dark
+color_scheme: light
 search_enabled: true
 search_button: false
 
@@ -61,6 +61,13 @@ footer_content: >-
   
   
   <p>Copyright &copy; 2024 Pacific Northwest National Laboratory. Distributed under the <a href="https://github.com/pnnl/BICEP/blob/main/LICENSE.txt">BSD 2-Clause License</a>.</p>
+  
+  <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eeebee;">
+  <a href="https://www.energy.gov/" target="_blank" rel="noopener noreferrer">
+    <img src="assets/Logo_Black_Seal_Black_Lettering_Horizontal.png" alt="PNNL Logo" style="max-width: 300px; height: auto;">
+  </a>
+  </div>
+  
   </div>
 
 # Aux links (top right)
