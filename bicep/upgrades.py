@@ -36,13 +36,37 @@ class UpgradeEstimator(TechnologyAdoption):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None, mode='local'):
+                 panel_safety_factor=1.25, target_states='all', mode='local'):
 
-        # todo: make the default behavior target states = all possible states. add validation to make sure any
-        #  supplied states are valid (e.g., assert(state in possible_states_list) so if a user specifies "France" as
-        #  a state, it fails.
-        if target_states is None:
-            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+        # Ensure data assets are available before proceeding
+        from utils.config import ensure_data_assets
+        ensure_data_assets()
+
+        # Validate target_states parameter
+        valid_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 
+                       'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
+                       'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH',
+                       'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
+                       'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+        
+        if target_states == 'all':
+            # Use all states
+            target_states = valid_states
+            logger.info("Analyzing all US states (50 states + DC)")
+        elif isinstance(target_states, str):
+            # Single state provided as string
+            target_states = [target_states]
+            if target_states[0] not in valid_states:
+                raise ValueError(f"Invalid state: {target_states[0]}. Valid states are: {valid_states}")
+            logger.info(f"Analyzing target state: {target_states[0]}")
+        elif isinstance(target_states, list):
+            # List of states provided
+            invalid_states = [state for state in target_states if state not in valid_states]
+            if invalid_states:
+                raise ValueError(f"Invalid state(s): {invalid_states}. Valid states are: {valid_states}")
+            logger.info(f"Analyzing target states: {target_states}")
+        else:
+            raise ValueError("target_states must be 'all', a state abbreviation (e.g., 'CA'), or a list of state abbreviations (e.g., ['CA', 'TX'])")
 
         super().__init__(scenario=scenario, base_year=base_year, end_year=end_year, epsilon=epsilon,
                          residential_voltage=residential_voltage,
