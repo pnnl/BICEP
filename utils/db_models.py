@@ -22,9 +22,6 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 from utils.sensitive_config import sql_server_admin, sql_server_pass
 from utils.config import DATA_LOCATION, DATA_DIR
 
-ENABLE_TIMING = False
-LOG_LEVEL = 'INFO'
-
 DATABASES = ['x-stock', ]
 
 
@@ -53,7 +50,8 @@ def validate_database(database):
         raise KeyError(f'{database} not in {DATABASES}')
 
 
-engines = {database: create_engine(database) for database in DATABASES}
+# Lazy engine initialization - engines created only when needed
+engines = {}
 
 
 # Base class for ORM x-stock tables
@@ -178,6 +176,9 @@ class Upgrades(Base):
 
 
 def create_lookup_tables(database='x-stock'):
+    # Create engine on demand if not exists
+    if database not in engines:
+        engines[database] = create_engine(database)
     Base.metadata.create_all(engines[database], checkfirst=True)
     logger.info('Created lookup tables')
 
@@ -185,6 +186,11 @@ def create_lookup_tables(database='x-stock'):
 def query_to_df(query, database='x-stock', params=None):
     """Run a raw sql query and return the result as a dataframe"""
     validate_database(database)
+    
+    # Create engine on demand if not exists
+    if database not in engines:
+        engines[database] = create_engine(database)
+    
     try:
         sql, params = query.sql()
     except AttributeError:
@@ -247,34 +253,6 @@ def get_state_cost_factors_local():
     except Exception as e:
         logger.error(f"Error reading cost factor file: {e}")
         raise
-
-
-def get_new_pv_data():
-    """
-    Retrieve PV forecast data and hierarchy data from new tables.
-    
-    Returns:
-    --------
-    tuple: (pv_data, hierarchy_data)
-        Two dataframes containing the raw PV forecast data and county-state mapping
-    """
-    # Query for PV forecast data
-    pv_query = """
-    SELECT * 
-    FROM dbo.distpvcap_stscen2023_mid_case
-    """
-    
-    # Query for hierarchy data using the correct table name
-    hierarchy_query = """
-    SELECT county_id, st as state, ba
-    FROM dbo.CountyHierarchy
-    """
-    
-    # Execute queries
-    pv_data = query_to_df(pv_query)
-    hierarchy_data = query_to_df(hierarchy_query)
-    
-    return pv_data, hierarchy_data
 
 
 if __name__ == '__main__':
