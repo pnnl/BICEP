@@ -17,12 +17,9 @@ from sqlalchemy import select
 
 import pandas as pd
 import numpy as np
-from utils.local_db_mirror import save_db_query_results
+from utils.local_db_mirror import save_data_file, load_data_file
 
-from utils.db_models import AdoptionForecasts, Technologies, TechMapping,  query_to_df
-from utils.db_models import get_new_pv_data
-from utils.adoption_forecast_parsing import get_scout_forecast, get_ev_forecast, get_pv_forecast
-from utils.local_db_mirror import save_db_query_results
+from utils.db_models import AdoptionForecasts, Technologies, TechMapping, query_to_df
 from utils.sampling import sample_xstock
 from bicep.capacity import CapacityEstimate
 
@@ -32,23 +29,31 @@ class TechnologyAdoption(CapacityEstimate):
     def __init__(self, scenario, base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None, mode='local'):
-        # Validate required parameters
-        if target_states is None:
-            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
+                 panel_safety_factor=1.25, target_states='all', mode='local'):
         
         # Store mode for tech projections
         self.mode = mode
+        
+        # Set database configuration based on mode
+        import utils.config
+        if mode == 'local':
+            utils.config.DATA_LOCATION = 'LOCAL'
+        elif mode == 'database':
+            utils.config.DATA_LOCATION = 'PNNL Database'
+        
+        # Reload db_models to refresh engines with correct configuration
+        import importlib
+        import utils.db_models
+        importlib.reload(utils.db_models)
         
         super().__init__(residential_voltage, commercial_voltage, medium_voltage,
                          max_light_comm_amp, ev_charger_amp, panel_safety_factor, target_states)
         self.calculate_capacity()
 
         self.scenario = scenario
-        try:
-            assert scenario in ('bau', 'high')
-        except AssertionError:
-            raise KeyError('Scenario must be in ["bau", "high"]')
+        # Accept any scenario string for flexibility
+        if not isinstance(scenario, str):
+            raise TypeError('Scenario must be a string')
 
         self.base_year = base_year
         self.end_year = end_year
@@ -59,91 +64,6 @@ class TechnologyAdoption(CapacityEstimate):
         
         # Cache for combined tech projections to avoid reloading data for each technology
         self._combined_data_cache = {}
-        
-        # Create state name mapping for technology forecast data
-        self.state_name_mapping = self._create_state_name_mapping()
-
-    def _create_state_name_mapping(self):
-        """Create mapping from various state name formats to standard abbreviations."""
-        # Common state name mappings that appear in forecast data
-        state_mappings = {
-            'CA': ['CA', 'California'],
-            'TX': ['TX', 'Texas'], 
-            'FL': ['FL', 'Florida'],
-            'NY': ['NY', 'New York'],
-            'PA': ['PA', 'Pennsylvania'],
-            'IL': ['IL', 'Illinois'],
-            'OH': ['OH', 'Ohio'],
-            'GA': ['GA', 'Georgia'],
-            'NC': ['NC', 'North Carolina'],
-            'MI': ['MI', 'Michigan'],
-            'WA': ['WA', 'Washington'],
-            'AZ': ['AZ', 'Arizona'],
-            'MA': ['MA', 'Massachusetts'],
-            'TN': ['TN', 'Tennessee'],
-            'IN': ['IN', 'Indiana'],
-            'MO': ['MO', 'Missouri'],
-            'MD': ['MD', 'Maryland'],
-            'WI': ['WI', 'Wisconsin'],
-            'CO': ['CO', 'Colorado'],
-            'MN': ['MN', 'Minnesota'],
-            'SC': ['SC', 'South Carolina'],
-            'AL': ['AL', 'Alabama'],
-            'LA': ['LA', 'Louisiana'],
-            'KY': ['KY', 'Kentucky'],
-            'OR': ['OR', 'Oregon'],
-            'OK': ['OK', 'Oklahoma'],
-            'CT': ['CT', 'Connecticut'],
-            'IA': ['IA', 'Iowa'],
-            'MS': ['MS', 'Mississippi'],
-            'AR': ['AR', 'Arkansas'],
-            'UT': ['UT', 'Utah'],
-            'KS': ['KS', 'Kansas'],
-            'NV': ['NV', 'Nevada'],
-            'NM': ['NM', 'New Mexico'],
-            'NE': ['NE', 'Nebraska'],
-            'WV': ['WV', 'West Virginia'],
-            'ID': ['ID', 'Idaho'],
-            'HI': ['HI', 'Hawaii'],
-            'NH': ['NH', 'New Hampshire'],
-            'ME': ['ME', 'Maine'],
-            'MT': ['MT', 'Montana'],
-            'RI': ['RI', 'Rhode Island'],
-            'DE': ['DE', 'Delaware'],
-            'SD': ['SD', 'South Dakota'],
-            'ND': ['ND', 'North Dakota'],
-            'AK': ['AK', 'Alaska'],
-            'VT': ['VT', 'Vermont'],
-            'WY': ['WY', 'Wyoming'],
-            'DC': ['DC', 'District of Columbia']
-        }
-        return state_mappings
-    
-    def _filter_for_target_states(self, data):
-        """Filter dataset for target states, handling multiple state name formats."""
-        if data.empty:
-            return data
-            
-        # Create a list of all possible state names for our target states
-        target_state_names = []
-        for state_abbrev in self.target_states:
-            if state_abbrev in self.state_name_mapping:
-                target_state_names.extend(self.state_name_mapping[state_abbrev])
-            else:
-                # If not in mapping, just use the abbreviation itself
-                target_state_names.append(state_abbrev)
-        
-        # Filter data for any of the target state names
-        filtered_data = data[data['state'].isin(target_state_names)].copy()
-        
-        if filtered_data.empty:
-            logger.warning(f"No data found for target states {self.target_states}. "
-                          f"Available states in data: {sorted(data['state'].unique())}")
-        else:
-            logger.debug(f"Filtered data for states: {self.target_states}. "
-                       f"Found {len(filtered_data)} records matching target states.")
-        
-        return filtered_data
 
     def calculate_adoptions(self):
         """Calculate adoption rates for all technologies using configured mode."""
@@ -162,266 +82,92 @@ class TechnologyAdoption(CapacityEstimate):
         self._building_adoption(end_use='water heating')
 
     def _get_tech_projections(self, tech, return_difference=True, sector=None):
-        """Get technology projections using configured mode (local or database)."""
+        """Get technology projections using query_to_df with unified data structure."""
         try:
             assert tech in self.all_techs['tech_name'].to_list()
         except AssertionError:
             raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
 
-        if self.mode == 'local':
-            # Local mode: use combined data from files (with caching)
-            cache_key = f"{self.scenario}_{self.mode}"
-            if cache_key not in self._combined_data_cache:
-                logger.info(f"Loading combined tech projections for {self.scenario} scenario (will be cached)")
-                self._combined_data_cache[cache_key] = self.get_combined_tech_projections(scenario=self.scenario, mode=self.mode)
-            else:
-                logger.debug(f"Using cached combined tech projections for {self.scenario} scenario")
-                
-            combined_data = self._combined_data_cache[cache_key]
-            
-            # Filter for target states to match building stock scope
-            target_data = self._filter_for_target_states(combined_data)
-            
-            if target_data.empty:
-                logger.warning(f"No data found for target states {self.target_states} for technology {tech}")
-                return None, None
-            
-            # Filter for specific technology
-            if sector is not None:
-                projection = target_data[
-                    (target_data['tech_name'] == tech) & 
-                    (target_data['sector'] == sector)
-                ].copy()
-            else:
-                projection = target_data[target_data['tech_name'] == tech].copy()
-                
-            if projection.empty:
-                logger.warning(f"No data found for technology {tech} in target states {self.target_states}")
-                return None, None
-
-            # Sum across target states for this tech/sector/year/scenario
-            base_year_projection = projection[
-                (projection['year'] == self.base_year) & 
-                (projection['scenario'] == self.scenario)
-            ]['stock_projection'].sum()
-
-            end_year_projection = projection[
-                (projection['year'] == self.end_year) & 
-                (projection['scenario'] == self.scenario)
-            ]['stock_projection'].sum()
-
-            tech_growth = end_year_projection - base_year_projection
-
-            # Create state list string for logging
-            state_str = ', '.join(self.target_states)
-            logger.info(f"{state_str} {tech} projections - Base year ({self.base_year}): {base_year_projection:,.0f}, "
-                       f"End year ({self.end_year}): {end_year_projection:,.0f}, Growth: {tech_growth:,.0f}")
-
-            if return_difference:
-                return tech_growth
-            else:
-                return base_year_projection, end_year_projection
+        # Load unified adoption forecasts data (contains all scenarios)
+        cache_key = f"unified_{self.mode}"
+        if cache_key not in self._combined_data_cache:
+            logger.info(f"Loading unified adoption forecasts for {self.mode} mode (will be cached)")
+            self._combined_data_cache[cache_key] = self.get_combined_tech_projections(scenario='all', mode=self.mode)
         else:
-            # Database mode: use original database queries
-            if sector is not None:
-                projection = query_to_df(select(AdoptionForecasts).where(
-                    (AdoptionForecasts.tech_name == tech) &
-                    (AdoptionForecasts.sector == sector)
-                ))
-            else:
-                projection = query_to_df(select(AdoptionForecasts).where(
-                    (AdoptionForecasts.tech_name == tech)
-                ))
+            logger.debug(f"Using cached unified adoption forecasts for {self.mode} mode")
+            
+        combined_data = self._combined_data_cache[cache_key]
         
-            if projection.empty:
-                logger.warning(f"No data found for technology {tech} in database")
-                if return_difference:
-                    return None
-                else:
-                    return None, None
-
-            # Filter for base year data - ALWAYS use 'bau' scenario for base year like original BICEP v1
-            base_year_data = projection.loc[
-                (projection['year'] == self.base_year) & 
-                (projection['scenario'] == 'bau')  # Always use 'bau' for base year
-            ]
+        # Filter for target states and technology
+        if sector is not None:
+            projection = combined_data[
+                (combined_data['tech_name'] == tech) & 
+                (combined_data['sector'] == sector) &
+                (combined_data['state'].isin(self.target_states))
+            ].copy()
+        else:
+            projection = combined_data[
+                (combined_data['tech_name'] == tech) &
+                (combined_data['state'].isin(self.target_states))
+            ].copy()
             
-            if base_year_data.empty:
-                logger.warning(f"No bau scenario data found for {tech} in {self.base_year}")
-                if return_difference:
-                    return None
-                else:
-                    return None, None
-                
-            base_year_projection = base_year_data['stock_projection'].iloc[0]
+        if projection.empty:
+            logger.warning(f"No data found for technology {tech} in target states {self.target_states}")
+            return None if return_difference else (None, None)
 
-            # Filter for end year data
-            end_year_data = projection.loc[
-                (projection['year'] == self.end_year) & 
-                (projection['scenario'] == self.scenario)
-            ]
-            
-            if end_year_data.empty:
-                logger.warning(f"No {self.scenario} scenario data found for {tech} in {self.end_year}")
-                if return_difference:
-                    return None
-                else:
-                    return None, None
-                
-            end_year_projection = end_year_data['stock_projection'].iloc[0]
+        # Get base year projection (always use BAU scenario for base year)
+        base_year_projection = projection[
+            (projection['year'] == self.base_year) & 
+            (projection['scenario'] == 'bau')  # Always BAU for base year
+        ]['stock_projection'].sum()
 
-            tech_growth = end_year_projection - base_year_projection
+        # Get end year projection (use specified scenario)
+        end_year_projection = projection[
+            (projection['year'] == self.end_year) & 
+            (projection['scenario'] == self.scenario)
+        ]['stock_projection'].sum()
 
-            if not projection.empty and projection['tech_name'].iloc[0] == 'pv':
-                new_pv_df = self._get_new_pv_projections()
-                if new_pv_df is not None and not new_pv_df.empty:
-                    #Concatenate with existing pv data once pv data processing step is triggered
-                    projection = pd.concat([projection, new_pv_df], ignore_index=True)
+        tech_growth = end_year_projection - base_year_projection
 
-            if return_difference:
-                return tech_growth
-            else:
-                return base_year_projection, end_year_projection
+        if return_difference:
+            return tech_growth
+        else:
+            return base_year_projection, end_year_projection
 
-    def get_combined_tech_projections(self, scenario='bau', mode='local'):
+    def get_combined_tech_projections(self, scenario='all', mode=None):
         """
-        Get combined technology projections from all sources.
+        Get combined technology projections from database using query_to_df.
         
         Args:
-            scenario (str): Scenario to process ('bau' or 'high')
-            mode (str): 'local' for file processing or 'database' for Azure operations
+            scenario (str): Scenario to process ('bau', 'high', 'mid', or 'all')
+            mode (str): 'local' for SQLite database or 'database' for Azure database. 
+                       If None, uses self.mode
             
         Returns:
-            pd.DataFrame: Combined dataset with all technologies
+            pd.DataFrame: Combined dataset with all technologies for the requested scenario
         """
-        if mode == 'local':
-            logger.info(f"Processing {scenario} scenario data locally...")
+        # Use instance mode if not specified
+        if mode is None:
+            mode = self.mode
             
-            # Process Scout data (tech_id 1-9)
-            logger.info("Processing Scout data...")
-            scout_data = get_scout_forecast(scenario=scenario, mode='local')
-            
-            # Process EV data (tech_id 10)  
-            logger.info("Processing EV data...")
-            ev_data = get_ev_forecast(scenario=scenario, mode='local')
-            
-            # Process PV data (tech_id 11) - always use 'mid' scenario for PV
-            logger.info("Processing PV data...")
-            pv_data = get_pv_forecast(scenario='mid', mode='local')
-            # Update PV scenario to match requested scenario
-            pv_data['scenario'] = scenario
-            
-            # Combine all datasets
-            combined_data = pd.concat([scout_data, ev_data, pv_data], ignore_index=True)
-            
-            # Assign unique IDs
-            combined_data['id'] = range(len(combined_data))
-            
-            logger.info(f"Processing complete. Total records: {len(combined_data)}")
-            logger.debug(f"Technologies processed: {sorted(combined_data['tech_id'].unique())}")
-            logger.debug(f"States covered: {sorted(combined_data['state'].unique())}")
-            logger.debug(f"Year range: {combined_data['year'].min()} - {combined_data['year'].max()}")
-            
-            # Save local mode results to parsed_inputs for comparison
-            save_db_query_results(f'combined_tech_projections_local_{scenario}', combined_data)
-            
-            # Save individual adoption forecasts in database table format
-            save_db_query_results(f'adoption_forecasts_{scenario}', combined_data)
-            
-            # Save all equivalent database tables for local mode
-            from utils.local_db_mirror import save_database_tables
-            save_database_tables(mode='local', scenario=scenario)
+        logger.info(f"Getting technology projections for scenario='{scenario}' mode='{mode}'")
+        
+        try:
+            # Use query_to_df - engines are now correctly configured in __init__
+            if scenario == 'all':
+                combined_data = query_to_df(select(AdoptionForecasts))
+            else:
+                combined_data = query_to_df(select(AdoptionForecasts).where(
+                    AdoptionForecasts.scenario == scenario
+                ))
+                
+            logger.info(f"Retrieved {len(combined_data):,} records from {'SQLite' if mode == 'local' else 'Azure'} database for scenario '{scenario}'")
             
             return combined_data
-        elif mode == 'database':
-            # Use database-based approach and save results for local mode
-            logger.info("Using database-based technology projections")
             
-            try:
-                # Process Scout data using database
-                logger.info("Fetching Scout data from database...")
-                scout_data = get_scout_forecast(scenario=scenario, mode='database')
-                logger.info(f"Successfully retrieved {len(scout_data)} Scout records from database")
-                save_db_query_results(f'scout_data_{scenario}', scout_data)
-                
-                # Use database for both PV and EV data
-                logger.info("Processing PV data from database...")
-                pv_data = get_pv_forecast(scenario='mid', mode='database')
-                pv_data['scenario'] = scenario
-                
-                logger.info("Processing EV data from database...")
-                ev_data = get_ev_forecast(scenario=scenario, mode='database')
-                
-                # Save EV and PV data as well
-                save_db_query_results(f'ev_data_{scenario}', ev_data)
-                save_db_query_results(f'pv_data_{scenario}', pv_data)
-                
-                combined_data = pd.concat([scout_data, ev_data, pv_data], ignore_index=True)
-                combined_data['id'] = range(len(combined_data))
-                
-                # Save final combined dataset
-                save_db_query_results(f'combined_tech_projections_{scenario}', combined_data)
-                
-                # Save all database tables for comparison
-                from utils.local_db_mirror import save_database_tables
-                save_database_tables(mode='database', scenario=scenario)
-                
-                logger.info(f"Database mode results saved to parsed_inputs for scenario: {scenario}")
-                return combined_data
-                
-            except Exception as e:
-                logger.error(f"Database mode failed with error: {str(e)}")
-                logger.error(f"Error type: {type(e).__name__}")
-                import traceback
-                logger.error(f"Full traceback: {traceback.format_exc()}")
-                logger.info("Falling back to local mode...")
-                return self.get_combined_tech_projections(scenario=scenario, mode='local')
-        else:
-            raise ValueError("Mode must be 'local' or 'database'")
-
-    def _get_new_pv_projections(self):
-        """Get additional PV projections from new data source."""
-        try:
-            pv_data, hierarchy_data = get_new_pv_data()
-            processed_data = self.process_new_pv_data(pv_data, hierarchy_data)
-            
-            # Return all processed data (no filtering needed since we want all new PV data)
-            return processed_data
-        except Exception:
-            return None
-
-    def process_new_pv_data(self, pv_data, hierarchy_data):
-        """Process new PV data to match the FORMAT of old PV data."""
-        year_cols = [col for col in pv_data.columns 
-                    if str(col).isdigit() and 2010 <= int(col) <= 2050]
-        
-        merged_data = pd.merge(pv_data, hierarchy_data, on='county_id', how='inner')
-        
-        long_data = merged_data.melt(
-            id_vars=['county_id', 'state'],
-            value_vars=year_cols,
-            var_name='year',
-            value_name='stock_projection'
-        )
-        
-        long_data['year'] = long_data['year'].astype(int)
-        
-        # Aggregate by state and year - sum all county data within each state
-        aggregated_data = long_data.groupby(['state', 'year'])['stock_projection'].sum().reset_index()
-        
-        result = pd.DataFrame({
-            'id': range(1001, 1001 + len(aggregated_data)),
-            'tech_id': 11,
-            'tech_name': 'pv',
-            'sector': '',
-            'year': aggregated_data['year'],
-            'scenario': 'mid',
-            'state': aggregated_data['state'],
-            'stock_projection': aggregated_data['stock_projection'],
-            'projection_units': 'MW'
-        })
-        
-        return result
+        except Exception as e:
+            logger.error(f"Failed to read adoption forecasts from database: {e}")
+            raise
 
     def _building_adoption(self, end_use):
         # get base and target year totals for each type
@@ -525,6 +271,10 @@ class TechnologyAdoption(CapacityEstimate):
 
 
 if __name__ == '__main__':
-    # used for testing
-    tec = TechnologyAdoption(scenario='high', target_states=['CA'], mode='local')
-    tec.calculate_adoptions()
+    # Example usage - replace scenario and states as needed
+    print("BICEP Technology Adoption Example")
+    print("Usage: TechnologyAdoption(scenario='your_scenario', target_states=['your_states'], mode='local_or_database')")
+    print("Available parameters:")
+    print("  scenario: any scenario string (e.g., 'bau', 'high', 'custom')")
+    print("  target_states: list of state codes ['CA', 'TX'] or 'all'")
+    print("  mode: 'local' for SQLite or 'database' for Azure")
