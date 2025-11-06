@@ -49,12 +49,17 @@ PANEL_SIZES = [
     1200, 2000, 3000, 4000]
 
 
-def building_peak_loads(upgrade=0, residential=1):
+def building_peak_loads(upgrade=0, residential=1, target_states=None):
     if residential in (0, 1):
         query = select(PeakLoad).where(PeakLoad.upgrade == upgrade,
                                        PeakLoad.residential == residential)
     else:
         query = select(PeakLoad).where(PeakLoad.upgrade == upgrade)
+    
+    # Add state filtering if target_states is provided
+    if target_states is not None:
+        query = query.where(PeakLoad.state.in_(target_states))
+    
     return query_to_df(query)
 
 
@@ -158,7 +163,7 @@ class CapacityEstimate:
 
     def get_baseline_loads(self):
         logger.info('Getting baseline peak loads')
-        self.buildings = building_peak_loads(upgrade=0, residential=-1)
+        self.buildings = building_peak_loads(upgrade=0, residential=-1, target_states=self.target_states)
 
     def get_meta(self):
         logger.info('Getting stock metadata')
@@ -174,10 +179,10 @@ class CapacityEstimate:
         """Estimate the existing capacity of the baseline stock models"""
 
         logger.info('Calculating existing stock capacity')
-        # join building sqft to peak load data
+        # join building sqft to peak load data - use inner join to ensure both peak loads and metadata exist
         self.buildings.set_index(['building_id', 'residential'], inplace=True)
         self.building_meta.set_index(['building_id', 'residential'], inplace=True)
-        self.buildings = self.buildings.join(self.building_meta[['sqft', 'weight', 'total_units']])
+        self.buildings = self.buildings.join(self.building_meta[['sqft', 'weight', 'total_units']], how='inner')
         self.buildings.reset_index(inplace=True)
         self.building_meta.reset_index(inplace=True)
 
@@ -237,8 +242,8 @@ class CapacityEstimate:
 
         logger.info('Estimating required capacity for building techs')
 
-        # retrieve calculated load differences
-        all_upgrades = query_to_df(select(LoadDifference))
+        # retrieve calculated load differences - filter by target states
+        all_upgrades = query_to_df(select(LoadDifference).where(LoadDifference.state.in_(self.target_states)))
 
         # separate the load difference values based on the upgrades
         hp_load_diff = all_upgrades[all_upgrades['upgrade'].isin(hp_upgrades)]
@@ -252,8 +257,8 @@ class CapacityEstimate:
         hpwh_load_diff = hpwh_load_diff.rename(columns={'peak_diff_kwh': 'hpwh_peak_diff_kwh'})
 
         self.buildings.set_index(['building_id', 'residential'], inplace=True)
-        self.buildings = self.buildings.join(hp_load_diff['hp_peak_diff_kwh'], how='outer')
-        self.buildings = self.buildings.join(hpwh_load_diff['hpwh_peak_diff_kwh'], how='outer')
+        self.buildings = self.buildings.join(hp_load_diff['hp_peak_diff_kwh'], how='left')
+        self.buildings = self.buildings.join(hpwh_load_diff['hpwh_peak_diff_kwh'], how='left')
         self.buildings.reset_index(inplace=True)
 
         bldg = self.buildings  # less verbose
