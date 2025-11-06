@@ -42,17 +42,16 @@ SCOUT_HIGH_FILE = RAW_INPUTS_PATH / 'Scout_high_scenario.json'
 EV_PROJECTIONS_FILE = RAW_INPUTS_PATH / 'TEMPO_LDV_EV_county_stock_projections.csv'
 
 # PV projection files
-PV_PROJECTIONS_FILE = RAW_INPUTS_PATH / 'distpvcap_stscen2023_mid_case_utf8.csv'
+PV_PROJECTIONS_FILE = RAW_INPUTS_PATH / 'ReEDS-distpv_cap-bau_high.csv'
 
 # Hierarchy and mapping files
 HIERARCHY_FILE = RAW_INPUTS_PATH / 'hierarchy.csv'
 TECHNOLOGY_MAP_FILE = BICEP_ROOT / 'technology_map.csv'
 
 # Required input files
-# todo: add any and all required input files to GitHub release (BICEP_DATA_ASSETS)
 COST_FACTOR_FILE = REQUIRED_INPUT_PATH / 'cost_factor.csv'
 
-#todo: Bilal add logic to download if not already downloaded (just the .db)
+# GitHub data assets that will be downloaded automatically if not present
 BICEP_DATA_ASSETS = ['https://github.com/pnnl/BICEP/releases/download/v0.1-data/adoption-forecasts.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/load-diff.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/peak-load.parquet',
@@ -62,6 +61,58 @@ BICEP_DATA_ASSETS = ['https://github.com/pnnl/BICEP/releases/download/v0.1-data/
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/upgrades.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/bicep.x-stock.db'
                      ]
+
+# Local database file path
+LOCAL_DB_FILE = DATA_ROOT / 'bicep.x-stock.db'
+
+
+def download_data_assets():
+    """
+    Download required data assets from GitHub releases if they don't exist locally.
+    """
+    import urllib.request
+    from pathlib import Path
+    
+    for asset_url in BICEP_DATA_ASSETS:
+        filename = asset_url.split('/')[-1]
+        local_path = DATA_ROOT / filename
+        
+        if not local_path.exists():
+            logger.info(f"Downloading {filename} from GitHub releases...")
+            try:
+                urllib.request.urlretrieve(asset_url, local_path)
+                logger.info(f"✓ Downloaded {filename}")
+            except Exception as e:
+                logger.error(f"✗ Failed to download {filename}: {e}")
+        else:
+            logger.debug(f"✓ {filename} already exists locally")
+
+
+def ensure_data_assets():
+    """
+    Ensure all required data assets are available locally.
+    Downloads them if missing.
+    """
+    # Check if database file exists
+    if not LOCAL_DB_FILE.exists():
+        logger.info("Local database file not found, downloading required data assets...")
+        download_data_assets()
+    else:
+        logger.debug("Local database file exists")
+        
+    # Verify all assets are present
+    missing_assets = []
+    for asset_url in BICEP_DATA_ASSETS:
+        filename = asset_url.split('/')[-1]
+        local_path = DATA_ROOT / filename
+        if not local_path.exists():
+            missing_assets.append(filename)
+    
+    if missing_assets:
+        logger.warning(f"Missing data assets: {missing_assets}")
+        download_data_assets()
+    else:
+        logger.debug("All data assets are available locally")
 
 
 
