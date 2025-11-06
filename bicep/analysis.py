@@ -19,13 +19,11 @@ class BicepResults(UpgradeEstimator):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None, mode='local'):
+                 panel_safety_factor=1.25, target_states='all', mode='local', 
+                 save_results=False):
         
-        if target_states is None:
-            raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
-        
-        # Store mode for tech projections
         self.mode = mode
+        self.scenario = scenario
         
         super().__init__(aggregation_level=aggregation_level, annualized_costs=annualized,
                          upgrade_lifespan=upgrade_lifespan,
@@ -40,14 +38,31 @@ class BicepResults(UpgradeEstimator):
 
         self.calculate_costs()
         
-        # Save database tables if in database mode
-        if mode == 'database':
-            from utils.local_db_mirror import save_database_tables
-            logger.info(f"Saving database tables for {scenario} scenario analysis")
-            save_database_tables(mode='database', scenario=scenario)
-            logger.info(f"Database tables saved for {scenario} scenario")
+        if save_results:
+            self._save_results()
+        
         self._capacity_requirement_cols = ['ev_req_capacity_amp', 'pv_req_capacity_amp',
                                            'hp_req_capacity_amp', 'hpwh_req_capacity_amp']
+
+    def _save_results(self):
+        """Save results to CSV with state abbreviation."""
+        from utils.config import PARSED_INPUTS_PATH
+        
+        PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
+        
+        # get first state from target_states or buildings data
+        if isinstance(self.target_states, list):
+            state = self.target_states[0]
+        elif isinstance(self.target_states, str):
+            state = self.target_states
+        else:
+            state = self.buildings['state'].iloc[0]  # Use first state in data
+        
+        filename = f"bicep_results_{self.scenario}_{state}.csv"
+        output_path = PARSED_INPUTS_PATH / filename
+        
+        self.buildings.to_csv(output_path, index=False)
+        logger.info(f"Saved {len(self.buildings):,} records to {output_path}")
 
     def requirements_by_tech(self, residential=1):
         dataset = self._filter_dataset(residential)
@@ -137,26 +152,18 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-                        #Run database mode only
-    # print("=== DATABASE MODE ===")
-    # bau_db = BicepResults(scenario='bau', target_states=['CA'], mode='database') 
-    # high_db = BicepResults(scenario='high', target_states=['CA'], mode='database')
-
-    # print(f'Database - total cost for bau: ${bau_db.total_cost:,.0f}')
-    # print(f'Database - total cost for high: ${high_db.total_cost:,.0f}')
-    # print(f'Database - total residential cost for bau: ${bau_db.total_residential_costs:,.0f}')
-    # print(f'Database - total residential cost for high: ${high_db.total_residential_costs:,.0f}')
-    # print(f'Database - total commercial cost for bau: ${bau_db.total_commercial_costs:,.0f}')
-    # print(f'Database - total commercial cost for high: ${high_db.total_commercial_costs:,.0f}')
-
-                        #Run local mode only
-    print("\n=== LOCAL MODE ===")
-    bau_local = BicepResults(scenario='bau', target_states=['CA'], mode='local')
-    high_local = BicepResults(scenario='high', target_states=['CA'], mode='local')
-    print(f'Local - total cost for bau: ${bau_local.total_cost:,.0f}')
-    print(f'Local - total cost for high: ${high_local.total_cost:,.0f}')
-    print(f'Local - total residential cost for bau: ${bau_local.total_residential_costs:,.0f}')
-    print(f'Local - total residential cost for high: ${high_local.total_residential_costs:,.0f}')
-    print(f'Local - total commercial cost for bau: ${bau_local.total_commercial_costs:,.0f}')
-    print(f'Local - total commercial cost for high: ${high_local.total_commercial_costs:,.0f}')
-
+    # Example usage with intuitive target_states parameter
+    print("=== BICEP Analysis ===")
+    
+    # Run analysis for California only (clear and explicit)
+    bau_results = BicepResults(scenario='bau', target_states='CA', mode='local', save_results=True)
+    high_results = BicepResults(scenario='high', target_states='CA', mode='local', save_results=True)
+    
+    print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
+    print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
+    print(f'BAU scenario - residential cost: ${bau_results.total_residential_costs:,.0f}')
+    print(f'HIGH scenario - residential cost: ${high_results.total_residential_costs:,.0f}')
+    print(f'BAU scenario - commercial cost: ${bau_results.total_commercial_costs:,.0f}')
+    print(f'HIGH scenario - commercial cost: ${high_results.total_commercial_costs:,.0f}')
+    
+    
