@@ -155,6 +155,85 @@ def upload_stock_meta(residential=True):
     logger.info(f'Baseline metadata successfully added for residential={residential}')
 
 
+def upload_adoption_forecasts():
+    """
+    One-time upload of complete adoption forecasts to Azure database.
+    Only drops specific CA records that already exist (BAU/HIGH 2020/2050), 
+    uploads all other data including missing CA years and CA MID scenario.
+    """
+    logger.info('Loading processed adoption forecasts')
+    data = pd.read_parquet('data/parsed_inputs/adoption_forecasts.parquet')
+    
+    logger.info(f'Original data: {len(data):,} records')
+    logger.info(f'States in data: {sorted(data["state"].unique())}')
+    
+    # Remove only specific CA records that already exist in Azure (avoid duplicates)
+    # Azure has CA data for: BAU 2020/2050, HIGH 2020/2050 (but not MID or other years)
+    existing_ca_conditions = (
+        (data['state'] == 'CA') & 
+        (data['scenario'].isin(['bau', 'high'])) & 
+        (data['year'].isin([2020, 2050]))
+    )
+    
+    data_filtered = data[~existing_ca_conditions].copy()
+    
+    removed_count = len(data) - len(data_filtered)
+    logger.info(f'Removed {removed_count} existing CA records (BAU/HIGH 2020/2050)')
+    logger.info(f'Remaining records: {len(data_filtered):,}')
+    
+    # Show what CA data we're keeping
+    remaining_ca = data_filtered[data_filtered['state'] == 'CA']
+    if len(remaining_ca) > 0:
+        ca_scenarios = remaining_ca['scenario'].unique()
+        ca_years = sorted(remaining_ca['year'].unique())
+        logger.info(f'Keeping CA data for scenarios: {list(ca_scenarios)}')
+        logger.info(f'Keeping CA data for years: {ca_years[:5]}...{ca_years[-5:]} ({len(ca_years)} total)')
+    else:
+        logger.info('No CA data remaining after filtering')
+    
+    # Verify schema matches Azure exactly
+    required_columns = ['tech_id', 'tech_name', 'sector', 'year', 'scenario', 'state', 'stock_projection', 'projection_units']
+    missing_columns = set(required_columns) - set(data_filtered.columns)
+    extra_columns = set(data_filtered.columns) - set(required_columns)
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    if extra_columns:
+        logger.warning(f"Dropping extra columns: {extra_columns}")
+        data_filtered = data_filtered[required_columns]
+    
+    logger.info('Schema validation passed - uploading to Azure database')
+    logger.info(f'Uploading {len(data_filtered):,} records to adoption-forecasts table')
+    
+    # Ensure engine is created before use (lazy initialization)
+    from utils.db_models import create_engine, validate_database
+    validate_database('x-stock')
+    if 'x-stock' not in engines:
+        engines['x-stock'] = create_engine('x-stock')
+    
+    # Upload to Azure database (append to existing data)
+    data_filtered.to_sql(
+        name='adoption-forecasts', 
+        con=engines['x-stock'],
+        if_exists='append',  # Keep existing CA records, add new ones
+        index=False, 
+        chunksize=1000
+    )
+    
+    logger.info('Adoption forecasts successfully uploaded to Azure database')
+
+
 if __name__ == '__main__':
+    """
+    Example usage of db_upload.py:
+    
+    # Upload residential stock metadata
     upload_stock_meta(residential=True)
+    
+    # Upload commercial stock metadata
     upload_stock_meta(residential=False)
+    
+    # Upload adoption forecasts (one-time operation)
+    upload_adoption_forecasts()
+    """
+    pass
