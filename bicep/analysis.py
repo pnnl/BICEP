@@ -47,22 +47,89 @@ class BicepResults(UpgradeEstimator):
     def _save_results(self):
         """Save results to CSV with state abbreviation."""
         from utils.config import PARSED_INPUTS_PATH
+        import pandas as pd
         
         PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
         
-        # get first state from target_states or buildings data
+        # Determine state identifier
         if isinstance(self.target_states, list):
-            state = self.target_states[0]
+            if len(self.target_states) == 1:
+                state = self.target_states[0]
+            else:
+                state = "ALL"
         elif isinstance(self.target_states, str):
             state = self.target_states
         else:
-            state = self.buildings['state'].iloc[0]  # Use first state in data
+            state = self.buildings['state'].iloc[0]
         
-        filename = f"bicep_results_{self.scenario}_{state}.csv"
-        output_path = PARSED_INPUTS_PATH / filename
+        # Save individual state or giant file
+        if state == "ALL":
+            # Giant file with all results
+            filename = f"bicep_results_{self.scenario}_ALL_STATES.csv"
+            output_path = PARSED_INPUTS_PATH / filename
+            self.buildings.to_csv(output_path, index=False)
+            logger.info(f"Saved {len(self.buildings):,} records from all states to {output_path}")
+            
+            # Summary file with costs by state and building type
+            summary = self._create_cost_summary()
+            summary_filename = f"bicep_cost_summary_{self.scenario}.csv"
+            summary_path = PARSED_INPUTS_PATH / summary_filename
+            summary.to_csv(summary_path, index=False)
+            logger.info(f"Saved cost summary to {summary_path}")
+        else:
+            # Individual state file
+            filename = f"bicep_results_{self.scenario}_{state}.csv"
+            output_path = PARSED_INPUTS_PATH / filename
+            self.buildings.to_csv(output_path, index=False)
+            logger.info(f"Saved {len(self.buildings):,} records to {output_path}")
+    
+    def _create_cost_summary(self):
+        """Create cost summary by state and building type."""
+        import pandas as pd
         
-        self.buildings.to_csv(output_path, index=False)
-        logger.info(f"Saved {len(self.buildings):,} records to {output_path}")
+        # Group by state and residential/commercial
+        summary_data = []
+        
+        for state in sorted(self.buildings['state'].unique()):
+            state_data = self.buildings[self.buildings['state'] == state]
+            
+            # Residential costs
+            residential = state_data[state_data['residential'] == 1]
+            res_total_cost = residential['weighted_cost'].sum()
+            res_upgrade_cost = residential['upgrade_costs'].sum()
+            res_buildings = len(residential)
+            res_upgrades = residential['upgrade_required'].sum()
+            
+            # Commercial costs  
+            commercial = state_data[state_data['residential'] == 0]
+            com_total_cost = commercial['weighted_cost'].sum()
+            com_upgrade_cost = commercial['upgrade_costs'].sum()
+            com_buildings = len(commercial)
+            com_upgrades = commercial['upgrade_required'].sum()
+            
+            # Add rows for this state
+            summary_data.extend([
+                {
+                    'state': state,
+                    'building_type': 'residential',
+                    'total_buildings': res_buildings,
+                    'buildings_needing_upgrades': res_upgrades,
+                    'upgrade_rate_percent': (res_upgrades / res_buildings * 100) if res_buildings > 0 else 0,
+                    'total_upgrade_costs': res_upgrade_cost,
+                    'total_weighted_costs': res_total_cost
+                },
+                {
+                    'state': state,
+                    'building_type': 'commercial',
+                    'total_buildings': com_buildings,
+                    'buildings_needing_upgrades': com_upgrades,
+                    'upgrade_rate_percent': (com_upgrades / com_buildings * 100) if com_buildings > 0 else 0,
+                    'total_upgrade_costs': com_upgrade_cost,
+                    'total_weighted_costs': com_total_cost
+                }
+            ])
+        
+        return pd.DataFrame(summary_data)
 
     def requirements_by_tech(self, residential=1):
         dataset = self._filter_dataset(residential)
@@ -152,12 +219,11 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-    # Example usage with intuitive target_states parameter
-    print("=== BICEP Analysis ===")
+    print("=== BICEP Analysis for ALL STATES ===")
     
-    # Run analysis for California only (clear and explicit)
-    bau_results = BicepResults(scenario='bau', target_states='CA', mode='local', save_results=True)
-    high_results = BicepResults(scenario='high', target_states='CA', mode='local', save_results=True)
+    # Run analysis for all states
+    bau_results = BicepResults(scenario='bau', target_states='all', mode='local', save_results=True)
+    high_results = BicepResults(scenario='high', target_states='all', mode='local', save_results=True)
     
     print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
     print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
@@ -165,5 +231,8 @@ if __name__ == '__main__':
     print(f'HIGH scenario - residential cost: ${high_results.total_residential_costs:,.0f}')
     print(f'BAU scenario - commercial cost: ${bau_results.total_commercial_costs:,.0f}')
     print(f'HIGH scenario - commercial cost: ${high_results.total_commercial_costs:,.0f}')
+    
+    print(f'\nTotal buildings analyzed: {len(bau_results.buildings):,}')
+    print(f'States included: {sorted(bau_results.buildings["state"].unique())}')
     
     
