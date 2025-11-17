@@ -116,16 +116,39 @@ class TechnologyAdoption(CapacityEstimate):
             return None if return_difference else (None, None)
 
         # Get base year projection (always use BAU scenario for base year)
-        base_year_projection = projection[
+        base_year_data = projection[
             (projection['year'] == self.base_year) & 
             (projection['scenario'] == 'bau')  # Always BAU for base year
-        ]['stock_projection'].sum()
+        ]['stock_projection']
+        
+        # If no base year data, use earliest available year as baseline
+        if base_year_data.empty:
+            available_years = sorted(projection['year'].unique())
+            if not available_years:
+                logger.warning(f"No data found for {tech} in target states")
+                return None if return_difference else (None, None)
+            
+            earliest_year = available_years[0]
+            logger.info(f"No {self.base_year} data for {tech}, using earliest year {earliest_year} as baseline")
+            
+            base_year_data = projection[
+                (projection['year'] == earliest_year) & 
+                (projection['scenario'] == 'bau')
+            ]['stock_projection']
+        
+        base_year_projection = base_year_data.iloc[0] if len(base_year_data) == 1 else base_year_data.sum()
 
         # Get end year projection (use specified scenario)
-        end_year_projection = projection[
+        end_year_data = projection[
             (projection['year'] == self.end_year) & 
             (projection['scenario'] == self.scenario)
-        ]['stock_projection'].sum()
+        ]['stock_projection']
+        
+        if end_year_data.empty:
+            logger.warning(f"No end year ({self.end_year}) data found for {tech} with scenario {self.scenario}")
+            return None if return_difference else (None, None)
+            
+        end_year_projection = end_year_data.iloc[0] if len(end_year_data) == 1 else end_year_data.sum()
 
         tech_growth = end_year_projection - base_year_projection
 
