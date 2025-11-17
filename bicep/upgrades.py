@@ -68,10 +68,12 @@ class UpgradeEstimator(TechnologyAdoption):
     def _required_upgrades(self):
         logger.info('Calculating required upgrades')
         ev_capacity = (self.buildings['ev_adopted'] * self.buildings['ev_req_capacity_amp']).fillna(0)
+        mhdv_ev_capacity = (self.buildings['mhdv_ev_adopted'] * self.buildings['mhdv_ev_req_capacity_amp_480']).fillna(0)
         pv_capacity = (self.buildings['pv_adopted'] * self.buildings['pv_req_capacity_amp']).fillna(0)
         hp_capacity = (self.buildings['hp_adopted'] * self.buildings['hp_req_capacity_amp']).fillna(0)
         hpwh_capacity = (self.buildings['hpwh_adopted'] * self.buildings['hpwh_req_capacity_amp']).fillna(0)
-        self.buildings['net_capacity_diff_amp'] = ev_capacity + pv_capacity + hp_capacity + hpwh_capacity
+        self.buildings['net_capacity_diff_amp'] = ev_capacity + mhdv_ev_capacity + pv_capacity + hp_capacity + hpwh_capacity
+        # self.buildings['net_capacity_diff_amp'] = ev_capacity + pv_capacity + hp_capacity + hpwh_capacity
 
         self.buildings['required_add_capacity_amp'] = (self.buildings['net_capacity_diff_amp'] -
                                                        self.buildings['spare_capacity'])
@@ -83,6 +85,7 @@ class UpgradeEstimator(TechnologyAdoption):
         logger.info('Calculating upgrade costs')
         residential_cost_dist = self.cost_distribution(residential=True)
         commercial_costs_dist = self.cost_distribution(residential=False)
+        mhdv_cost_dist = PanelUpgradeCostDistribution(residential=False, mhdv=True) #SA
 
         residential_upgrades = self.buildings.loc[((self.buildings['residential'] == 1) &
                                                    (self.buildings['upgrade_required'] == 1))]
@@ -90,15 +93,24 @@ class UpgradeEstimator(TechnologyAdoption):
         commercial_upgrades = self.buildings.loc[((self.buildings['residential'] == 0) &
                                                   (self.buildings['upgrade_required'] == 1))]
 
+        mhdv_upgrades = self.buildings.loc[
+            (self.buildings['upgrade_required_mhdv'] == 1)
+        ]
+
         num_residential = len(residential_upgrades)
         num_commercial = len(commercial_upgrades)
+        num_mhdv = len(mhdv_upgrades)
 
         residential_costs = residential_cost_dist.constrained_samples(sample_size=num_residential,
                                                                       min_value=0, max_value=35000)
         commercial_costs = commercial_costs_dist.constrained_samples(sample_size=num_commercial,
                                                                      min_value=0, max_value=350000)
 
-        self.buildings['upgrade_costs_base'] = np.nan
+        mhdv_costs = mhdv_cost_dist.constrained_samples(sample_size=num_mhdv,
+                                                        min_value=0, max_value=50000)
+
+        self.buildings['upgrade_costs_base'] = 0.0#np.nan
+        self.buildings['upgrade_costs_mhdv'] = 0.0#np.nan #mhdv
 
         self.buildings.loc[
             ((self.buildings['residential'] == 1) &
@@ -109,6 +121,15 @@ class UpgradeEstimator(TechnologyAdoption):
             ((self.buildings['residential'] == 0) &
              (self.buildings['upgrade_required'] == 1)),
             'upgrade_costs_base'] = commercial_costs
+
+        self.buildings.loc[
+            (
+             (self.buildings['upgrade_required_mhdv'] == 1)),
+            'upgrade_costs_mhdv'] = mhdv_costs
+
+        self.buildings['upgrade_costs_base_without_mhdv'] = self.buildings['upgrade_costs_base']
+        self.buildings['upgrade_costs_base'] = self.buildings['upgrade_costs_base'] + self.buildings['upgrade_costs_mhdv']
+
         
         try:
             logger.info('Retrieving state location factors from database')
@@ -126,6 +147,15 @@ class UpgradeEstimator(TechnologyAdoption):
             lambda row: npf.pmt(rate=self.discount_rate,
                                 nper=self.upgrade_lifespan,
                                 pv=-row['upgrade_costs']), axis=1)
+
+        # # For MHDV
+        # self.buildings['upgrade_costs_without_mhdv'] = self.buildings['upgrade_costs_base_without_mhdv'] * \
+        #                                                self.buildings['location_factor']
+        # self.buildings['equiv_annual_cost_without_mhdv'] = self.buildings.apply(
+        #     lambda row: npf.pmt(rate=self.discount_rate,
+        #                         nper=self.upgrade_lifespan,
+        #                         pv=-row['upgrade_costs_without_mhdv']), axis=1)
+
 
         if self.discount_rate != self.inflation_rate:
             possible_years = np.arange(start=self.base_year, stop=self.end_year + 1, dtype=int)

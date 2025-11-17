@@ -42,6 +42,22 @@ class TechnologyAdoption(CapacityEstimate):
     def calculate_adoptions(self):
         logger.info('Calculating adoption rate for EV')
         self._iterative_adoption(tech='ev', tech_project_col='represented_vehicles')
+
+        logger.info('Calculating adoption rate for MHDV EV')
+        if 'mhdv_ev' not in self.all_techs['tech_name'].values:
+            import pandas as pd
+            new_row = pd.DataFrame([{
+                'tech_id': self.all_techs['tech_id'].max() + 1,
+                'tech_name': 'mhdv_ev',
+                'end_use': 'transport'
+            }])
+            self.all_techs = pd.concat([self.all_techs, new_row], ignore_index=True)
+        self._iterative_adoption(
+            tech='mhdv_ev',
+            tech_project_col='mhdv_represented_vehicles',
+            csv_path='mhdv_ev_projection.csv'
+        )
+
         logger.info('Calculating adoption rate for PV')
         self._iterative_adoption(tech='pv', tech_project_col='pv_size_kw')
         logger.info('Calculating adoption rate for HPs')
@@ -49,21 +65,31 @@ class TechnologyAdoption(CapacityEstimate):
         logger.info('Calculating adoption rate for HPWHs')
         self._building_adoption(end_use='water heating')
 
-    def _get_tech_projections(self, tech, return_difference=True, sector=None):
-        try:
-            assert tech in self.all_techs['tech_name'].to_list()
-        except AssertionError:
-            raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
+    def _get_tech_projections(self, tech, return_difference=True, sector=None, csv_path=None):
+        if tech != 'mhdv_ev':
+            try:
+                assert tech in self.all_techs['tech_name'].to_list()
+            except AssertionError:
+                raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
 
-        if sector is not None:
-            projection = query_to_df(select(AdoptionForecasts).where(
-                (AdoptionForecasts.tech_name == tech) &
-                (AdoptionForecasts.sector == sector)
-            ))
+            # If tech is mhdv_ev and CSV path is provided, read from CSV
+        if tech == 'mhdv_ev' and csv_path is not None:
+            import pandas as pd
+            projection = pd.read_csv(csv_path)
+            if sector is not None:
+                projection = projection[projection['sector'] == sector]
+            projection = projection[projection['tech_name'] == tech]
         else:
-            projection = query_to_df(select(AdoptionForecasts).where(
-                (AdoptionForecasts.tech_name == tech)
-            ))
+            if sector is not None:
+                projection = query_to_df(select(AdoptionForecasts).where(
+                    (AdoptionForecasts.tech_name == tech) &
+                    (AdoptionForecasts.sector == sector)
+                ))
+            else:
+                projection = query_to_df(select(AdoptionForecasts).where(
+                    (AdoptionForecasts.tech_name == tech)
+                ))
+
         if projection.empty:
             return None, None
 
@@ -139,11 +165,11 @@ class TechnologyAdoption(CapacityEstimate):
         percent_converted = min(1 - (end_year_stock/base_year_stock), 1)  # rounding can result in percent > 1
         return max(percent_converted, 0)  # percent_convert < 0 implies tech / growth
 
-    def _iterative_adoption(self, tech, tech_project_col):
+    def _iterative_adoption(self, tech, tech_project_col, csv_path=None):
 
         tech_adopted_col = f'{tech}_adopted'
 
-        tech_growth = self._get_tech_projections(tech=tech)
+        tech_growth = self._get_tech_projections(tech=tech, csv_path = csv_path)
 
         if tech == 'pv':
             tech_growth = tech_growth * 1000  # MW to kW

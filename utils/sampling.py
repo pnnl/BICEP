@@ -157,12 +157,13 @@ class EvSpotsDistribution(BaseDistribution):
     def _init_distribution(self):
         self.distribution = norm(loc=self.mean_value, scale=self.std)
 
+
 class MHDVEvSpotsDistribution(BaseDistribution):
     """
     MHDV EV parking spot distribution as a fraction of total parking.
     Parameters can vary by building type.
     """
-    def __init__(self, mean_value=0.02, std=0.01):
+    def __init__(self, mean_value=0.05, std=0.01):
         super().__init__(kernel_fit=False)
         self.mean_value = mean_value
         self.std = std
@@ -170,6 +171,7 @@ class MHDVEvSpotsDistribution(BaseDistribution):
 
     def _init_distribution(self):
         self.distribution = norm(loc=self.mean_value, scale=self.std)
+
 
 class ParkingSpotsDistribution(BaseDistribution):
     """
@@ -216,10 +218,11 @@ class PanelUpgradeCostDistribution(BaseDistribution):
 
     Two skewed distributions (long right tail) are provided here.
     """
-    def __init__(self, residential=True, distribution_type='lognormal'):
+    def __init__(self, residential=True, mhdv = False, distribution_type='lognormal'):
         super().__init__(kernel_fit=False)
         self.residential = residential
         self.distribution_type = distribution_type
+        self.mhdv = mhdv
 
         try:
             assert self.distribution_type in ['lognormal', 'frechet']
@@ -254,8 +257,32 @@ class PanelUpgradeCostDistribution(BaseDistribution):
             loc = 10000
             return invweibull(c=c, scale=scale, loc=loc)
 
+    def _mhdv_cost_distribution(self):
+        """
+        Log-normal distribution for BTM medium-voltage (MV)
+        upgrade costs driven by MHDV charging installations.
+            - Median (m) = $8,000
+            - Log-scale standard deviation (sigma) = 0.60
+            - μ = ln(median) = 8.9872
+        """
+        if self.distribution_type == 'lognormal':
+            sigma = 0.60
+            mu = np.log(8000)
+            scale = np.exp(mu)
+            loc = 0
+            return lognorm(s=sigma, scale=scale, loc=loc)
+
+        elif self.distribution_type == 'frechet':
+            # Alternative heavy-tail option (rarely used)
+            c = 1.8
+            scale = 8000
+            loc = 2000
+            return invweibull(c=c, scale=scale, loc=loc)
+
     def _init_distribution(self):
-        if self.residential:
+        if self.mhdv:
+            self.distribution = self._mhdv_cost_distribution()
+        elif self.residential:
             self.distribution = self._residential_cost_distribution()
         else:
             self.distribution = self._commercial_cost_distribution()

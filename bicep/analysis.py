@@ -69,14 +69,6 @@ class BicepResults(UpgradeEstimator):
         if cdf:
             cdf = px.ecdf(data_frame=plot_df, x=plot_cols)
 
-            # # Create an ECDF figure for MHDV EV using the same px.ecdf method
-            # mhdv_cdf = px.ecdf(data_frame=plot_df_comm, x=['MHDV EV'])
-            #
-            # # Add the MHDV EV trace(s) from this separate ECDF plot to your main ECDF plot
-            # for trace in mhdv_cdf.data:
-            #     trace.name = "MHDV EV"  # legend name
-            #     cdf.add_trace(trace)
-
             cdf.update_layout(title='Additional capacity requirements by tech',
                               xaxis_title="Required Capacity [amps]",
                               yaxis_title="Percentile of Tech",
@@ -100,11 +92,6 @@ class BicepResults(UpgradeEstimator):
             histo.add_trace(go.Histogram(x=hpwh_cap, name="HP WH",
                                          histnorm='percent', nbinsx=100))
 
-
-
-            # histo.add_trace(go.Histogram(x=commercial_dataset['mhdv_ev_req_capacity_amp'],name='MHDV EV',
-            #                             histnorm='percent',nbinsx=100))
-
             histo.update_layout(title='Additional capacity requirements by tech',
                                 xaxis_title="Required Capacity [amps]",
                                 yaxis_title="Percentile of Tech",
@@ -125,14 +112,14 @@ class BicepResults(UpgradeEstimator):
             "mhdv_ev_req_capacity_amp": "MHDV EV"
         })
 
-        voltages = sorted(plot_df_comm['assumed_volt'].unique())
+        voltages = sorted(plot_df_comm['mhdv_assumed_volt'].unique())
         colors = ['blue', 'red']
         color_map = {v: colors[i % len(colors)] for i, v in enumerate(voltages)}
 
         if cdf:
             fig = go.Figure()
             for v in voltages:
-                subset = plot_df_comm[plot_df_comm['assumed_volt'] == v]
+                subset = plot_df_comm[plot_df_comm['mhdv_assumed_volt'] == v]
                 x_sorted = np.sort(subset['MHDV EV'])
                 y_vals = np.linspace(0, 1, len(x_sorted))
                 fig.add_trace(go.Scatter(
@@ -145,18 +132,26 @@ class BicepResults(UpgradeEstimator):
 
             fig.update_layout(
                 title='Additional capacity requirements by tech',
-                xaxis_title="Required Capacity [amps]",
-                yaxis_title="Percentile of Tech",
+                xaxis=dict(
+                    title="Required Capacity [amps]",
+                    title_font=dict(size=18),
+                    tickfont=dict(size=14),
+                    type="log"
+                ),
+                yaxis=dict(
+                    title="Percentile of MHDV EV",
+                    title_font=dict(size=18),
+                    tickfont=dict(size=14)
+                ),
                 legend_title="Voltage Level",
-                xaxis_type="log"
+                barmode='overlay'
             )
-            fig.write_image("mhdv_ev_capacity.png", width=1000, height=600, scale=3)
             fig.show()
 
         else:
             fig = go.Figure()
             for v in voltages:
-                subset = plot_df_comm[plot_df_comm['assumed_volt'] == v]
+                subset = plot_df_comm[plot_df_comm['mhdv_assumed_volt'] == v]
                 fig.add_trace(go.Histogram(
                     x=subset['MHDV EV'],
                     name=f"{v} V",
@@ -168,14 +163,20 @@ class BicepResults(UpgradeEstimator):
 
             fig.update_layout(
                 title='Additional capacity requirements by tech',
-                xaxis_title="Required Capacity [amps]",
-                yaxis_title="Percent of Buildings",
+                xaxis=dict(
+                    title="Required Capacity [amps]",
+                    title_font=dict(size=18),
+                    tickfont=dict(size=14),
+                    type="log"
+                ),
+                yaxis=dict(
+                    title="Percentile of MHDV EV",
+                    title_font=dict(size=18),
+                    tickfont=dict(size=14)
+                ),
                 legend_title="Voltage Level",
-                barmode='overlay',
-                xaxis_type="log"
+                barmode='overlay'
             )
-            fig.write_image("mhdv_ev_capacity.png", width=1000, height=600, scale=3)
-
             fig.show()
 
     def plot_peak_amp_distribution(self, residential=1):
@@ -215,19 +216,21 @@ class BicepResults(UpgradeEstimator):
 
 
 if __name__ == '__main__':
-    bau = BicepResults(scenario='bau')
-    # high = BicepResults(scenario='high')
+    bau = BicepResults(scenario='bau', base_year =2025, discount_rate = 0.03)
+    high = BicepResults(scenario='high', base_year =2025, discount_rate = 0.03)
 
     bau.plot_drivers()
     bau.plot_drivers_mhdv()
-    # high.plot_drivers()
+    high.plot_drivers()
+    high.plot_drivers_mhdv()
 
     print(f'total cost for bau: ${bau.total_cost:,.0f}')
-    # print(f'total cost for high: ${high.total_cost:,.0f}')
+    print(f'total cost for high: ${high.total_cost:,.0f}')
 
     print(f'total residential cost for bau: ${bau.total_residential_costs:,.0f}')
-    # print(f'total residential cost for high: ${high.total_residential_costs:,.0f}')
+    print(f'total residential cost for high: ${high.total_residential_costs:,.0f}')
 
     print(f'total commercial cost for bau: ${bau.total_commercial_costs:,.0f}')
-    # print(f'total commercial cost for high: ${high.total_commercial_costs:,.0f}')
+    print(f'total commercial cost for high: ${high.total_commercial_costs:,.0f}')
+
 
