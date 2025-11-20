@@ -69,9 +69,14 @@ LOCAL_DB_FILE = DATA_ROOT / 'bicep.x-stock.db'
 def download_data_assets():
     """
     Download required data assets from GitHub releases if they don't exist locally.
+    Includes built-in retry logic with exponential backoff for temporary failures.
     """
     import urllib.request
+    import time
     from pathlib import Path
+    
+    max_retries = 3
+    base_delay = 2  # seconds
     
     for asset_url in BICEP_DATA_ASSETS:
         filename = asset_url.split('/')[-1]
@@ -79,11 +84,21 @@ def download_data_assets():
         
         if not local_path.exists():
             logger.info(f"Downloading {filename} from GitHub releases...")
-            try:
-                urllib.request.urlretrieve(asset_url, local_path)
-                logger.info(f"✓ Downloaded {filename}")
-            except Exception as e:
-                logger.error(f"✗ Failed to download {filename}: {e}")
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    urllib.request.urlretrieve(asset_url, local_path)
+                    logger.info(f"✓ Downloaded {filename}")
+                    break  # Success, move to next file
+                except Exception as e:
+                    if attempt < max_retries:
+                        delay = base_delay * (2 ** attempt)  # Exponential backoff
+                        logger.warning(f"⚠ Download attempt {attempt + 1} failed for {filename}: {e}")
+                        logger.info(f"Retrying in {delay} seconds... ({attempt + 1}/{max_retries} retries)")
+                        time.sleep(delay)
+                    else:
+                        logger.error(f"✗ Failed to download {filename} after {max_retries + 1} attempts: {e}")
+                        logger.error(f"This file may be temporarily unavailable. The system will retry when needed.")
         else:
             logger.debug(f"✓ {filename} already exists locally")
 
@@ -91,7 +106,13 @@ def download_data_assets():
 def ensure_data_assets():
     """
     Ensure all required data assets are available locally.
-    Downloads them if missing.
+    Downloads them if missing with built-in retry logic.
+    
+    This function implements a robust recovery mechanism that:
+    1. Checks for missing files multiple times
+    2. Retries downloads with exponential backoff
+    3. Continues execution even if some files temporarily fail
+    4. Re-attempts missing files when called again later
     """
     # Check if database file exists
     if not LOCAL_DB_FILE.exists():
@@ -100,19 +121,27 @@ def ensure_data_assets():
     else:
         logger.debug("Local database file exists")
         
-    # Verify all assets are present
-    missing_assets = []
-    for asset_url in BICEP_DATA_ASSETS:
-        filename = asset_url.split('/')[-1]
-        local_path = DATA_ROOT / filename
-        if not local_path.exists():
-            missing_assets.append(filename)
-    
-    if missing_assets:
-        logger.warning(f"Missing data assets: {missing_assets}")
-        download_data_assets()
-    else:
-        logger.debug("All data assets are available locally")
+    # Verify all assets are present (check up to 2 times for robustness)
+    for check_attempt in range(2):
+        missing_assets = []
+        for asset_url in BICEP_DATA_ASSETS:
+            filename = asset_url.split('/')[-1]
+            local_path = DATA_ROOT / filename
+            if not local_path.exists():
+                missing_assets.append(filename)
+        
+        if missing_assets:
+            if check_attempt == 0:
+                logger.warning(f"Missing data assets: {missing_assets}")
+                logger.info("Attempting to download missing assets...")
+                download_data_assets()
+            else:
+                logger.warning(f"Some assets still missing after retry: {missing_assets}")
+                logger.info("System will continue and retry these files when needed again")
+                break
+        else:
+            logger.debug("All data assets are available locally")
+            break
 
 
 

@@ -218,12 +218,130 @@ class BicepResults(UpgradeEstimator):
         capacity.show()
 
 
-if __name__ == '__main__':
-    print("=== BICEP Analysis for ALL STATES ===")
+class BicepAllStates:
+    """
+    BICEP Individual State Analysis 
+    Implements state-by-state processing to avoid national competition effects.
+    Uses exact same variable names and structure as all_states.py for easy identification.
+    """
     
-    # Run analysis for all states
-    bau_results = BicepResults(scenario='bau', target_states='all', mode='local', save_results=True)
-    high_results = BicepResults(scenario='high', target_states='all', mode='local', save_results=True)
+    def __init__(self, scenario='bau', mode='local', save_results=True):
+        self.scenario = scenario
+        self.mode = mode
+        self.save_results = save_results
+        
+        # list of all unique states
+        self.all_states = [
+            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL',
+            'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
+            'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH',
+            'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
+            'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+        ]
+        
+        # Run the analysis
+        self._run_individual_state_analysis()
+    
+    def _run_individual_state_analysis(self):
+        """Run individual state analysis with state-by-state processing"""
+        import pandas as pd
+        
+        logger.info("=== BICEP Individual State Analysis ===")
+        logger.info("Running each state separately to avoid national competition effects")
+        
+        # object to store results
+        final_results = {}
+
+        for state in self.all_states:
+            logger.info(f"Processing {state}...")
+            
+            try:
+                # calculate state results 
+                state_results = BicepResults(scenario=self.scenario, mode=self.mode, target_states=[state])
+                
+                # store results in dictionary 
+                final_results[state] = state_results
+                
+                logger.info(f"Completed {state}: ${state_results.total_cost:,.0f}")
+                
+            except Exception as e:
+                logger.error(f"Failed to process {state}: {e}")
+                continue
+
+        logger.info("All individual state analyses complete. Combining results...")
+
+        # after all states have completed, combine results 
+        # list for aggregate cost data results
+        aggregate_data = []
+        # list for buildings df data
+        buildings_list = []
+        # list for meta df data
+        meta_list = []
+
+        for state in self.all_states:
+            if state in final_results:
+                # combined aggregate data 
+                aggregate_data.append({
+                    'state': state,
+                    'total_cost': final_results[state].total_cost,
+                    'total_residential_costs': final_results[state].total_residential_costs,
+                    'total_commercial_costs': final_results[state].total_commercial_costs
+                })
+
+                # collect DataFrames for concatenation 
+                buildings_list.append(final_results[state].buildings)
+                meta_list.append(final_results[state].building_meta)
+
+        # Create final DataFrames
+        self.all_states_results = pd.DataFrame(aggregate_data)
+        
+        # Filter out empty DataFrames to avoid FutureWarning
+        non_empty_buildings = [df for df in buildings_list if not df.empty]
+        non_empty_meta = [df for df in meta_list if not df.empty]
+        
+        self.all_states_buildings = pd.concat(non_empty_buildings, ignore_index=True) if non_empty_buildings else pd.DataFrame()
+        self.all_states_meta = pd.concat(non_empty_meta, ignore_index=True) if non_empty_meta else pd.DataFrame()
+        
+        # Calculate and display national totals
+        self.total_cost = self.all_states_results['total_cost'].sum()
+        self.total_residential_costs = self.all_states_results['total_residential_costs'].sum()
+        self.total_commercial_costs = self.all_states_results['total_commercial_costs'].sum()
+        
+        logger.info(f"=== FINAL NATIONAL TOTALS (Individual State Method) ===")
+        logger.info(f"Total Cost: ${self.total_cost:,.0f}")
+        logger.info(f"Residential Cost: ${self.total_residential_costs:,.0f}")
+        logger.info(f"Commercial Cost: ${self.total_commercial_costs:,.0f}")
+        
+        # Save results if requested
+        if self.save_results:
+            self._save_individual_state_results()
+        
+        logger.info("=== Individual State Analysis Complete ===")
+    
+    def _save_individual_state_results(self):
+        """Save results from individual state analysis with standard naming convention"""
+        from utils.config import PARSED_INPUTS_PATH
+        
+        PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
+        
+        # Save aggregate cost summary results
+        self.all_states_results.to_csv(f"data/parsed_inputs/bicep_cost_summary_{self.scenario}.csv", index=False)
+        
+        # Save detailed buildings results  
+        self.all_states_buildings.to_csv(f"data/parsed_inputs/bicep_results_{self.scenario}_all_states.csv", index=False)
+        
+        # Save meta data
+        self.all_states_meta.to_csv(f"data/parsed_inputs/bicep_meta_{self.scenario}_all_states.csv", index=False)
+        
+        logger.info(f"Saved results to data/parsed_inputs/")
+
+
+if __name__ == '__main__':
+    print("=== BICEP Analysis ===")
+    
+    # Run individual state analysis to avoid national competition effects
+    bau_results = BicepAllStates(scenario='bau', mode='local', save_results=True)
+    high_results = BicepAllStates(scenario='high', mode='local', save_results=True)
     
     print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
     print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
@@ -232,7 +350,7 @@ if __name__ == '__main__':
     print(f'BAU scenario - commercial cost: ${bau_results.total_commercial_costs:,.0f}')
     print(f'HIGH scenario - commercial cost: ${high_results.total_commercial_costs:,.0f}')
     
-    print(f'\nTotal buildings analyzed: {len(bau_results.buildings):,}')
-    print(f'States included: {sorted(bau_results.buildings["state"].unique())}')
+    print(f'\nTotal buildings analyzed: {len(bau_results.all_states_buildings):,}')
+    print(f'States included: {sorted(bau_results.all_states_buildings["state"].unique())}')
     
     
