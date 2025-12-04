@@ -19,7 +19,7 @@ from sqlalchemy.types import Integer, String, Float
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from utils.sensitive_config import sql_server_admin, sql_server_pass
-from utils.config import DATA_DIR
+from utils.config import DATA_DIR, ensure_data_assets
 
 DATABASES = ['x-stock', ]
 
@@ -49,6 +49,7 @@ class DatabaseContext:
     def _create_engine(self, database):
         """Create database engine based on mode configuration."""
         if self.mode == 'local':
+            ensure_data_assets()
             sqlite_file = DATA_DIR / 'bicep.x-stock.db'
             if not sqlite_file.exists():
                 raise FileNotFoundError(f"SQLite database not found: {sqlite_file}")
