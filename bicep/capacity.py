@@ -40,7 +40,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import select
 
-from utils.db_models import LoadDifference, StockMeta, PeakLoad, query_to_df, engines
+from utils.db_models import LoadDifference, StockMeta, PeakLoad, query_to_df
 import utils.sampling as sampling
 
 PANEL_SIZES = [
@@ -49,7 +49,7 @@ PANEL_SIZES = [
     1200, 2000, 3000, 4000]
 
 
-def building_peak_loads(upgrade=0, residential=1, target_states=None):
+def building_peak_loads(db_context, upgrade=0, residential=1, target_states=None):
     if residential in (0, 1):
         query = select(PeakLoad).where(PeakLoad.upgrade == upgrade,
                                        PeakLoad.residential == residential)
@@ -59,15 +59,16 @@ def building_peak_loads(upgrade=0, residential=1, target_states=None):
     # Add state filtering if target_states is provided
     if target_states is not None:
         query = query.where(PeakLoad.state.in_(target_states))
-    
-    return query_to_df(query)
+
+    engine = db_context.get_engine()
+    return query_to_df(query, engine)
 
 
-def building_peak_load_diff(non_zero_upgrade, residential):
+def building_peak_load_diff(non_zero_upgrade, residential, db_context=None):
     logger.info(f'Retrieving peak loads for upgrade {non_zero_upgrade}, '
                 f'residential={residential}')
-    baseline = building_peak_loads(0, residential)
-    upgrade = building_peak_loads(non_zero_upgrade, residential)
+    baseline = building_peak_loads(db_context=db_context, upgrade=0, residential=residential)
+    upgrade = building_peak_loads(db_context=db_context, upgrade=non_zero_upgrade,residential=residential)
 
     logger.info(f'Calculating peak load differences')
     merged = pd.merge(left=baseline.drop(columns=['timestamp', 'file_path', 'upgrade']),
@@ -80,7 +81,7 @@ def building_peak_load_diff(non_zero_upgrade, residential):
                          'max_elec_consumption_kwh_baseline'],
                 inplace=True)
     logger.info(f'Uploading peak load differences')
-    with engines['x-stock'].connect() as connection:
+    with db_context.connection() as connection:
         with connection.begin():
             merged.to_sql(name='load-diff', con=connection, chunksize=1000,
                           if_exists='append', index=False)
@@ -130,7 +131,7 @@ class CapacityEstimate:
     """
     def __init__(self, residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states=None):
+                 panel_safety_factor=1.25, target_states=None, db_context=None):
         """
 
         :param residential_voltage: Assumed voltage for residential electrical service
@@ -140,6 +141,7 @@ class CapacityEstimate:
         :param ev_charger_amp: Fixed current requirement for Level 2 EV charger
         :param panel_safety_factor: NEC panel safety of 25%
         :param target_states: List of state abbreviations to analyze (required)
+        :param db_context: DatabaseContext instance for database operations
         """
         if target_states is None:
             raise ValueError("target_states parameter is required. Please specify the states to analyze, e.g., target_states=['CA']")
@@ -147,6 +149,7 @@ class CapacityEstimate:
         self.buildings = None
         self.building_meta = None
         self.safety_factor = panel_safety_factor
+        self.db_context = db_context
 
         self.ev_charger_amp = ev_charger_amp
 
@@ -163,11 +166,13 @@ class CapacityEstimate:
 
     def get_baseline_loads(self):
         logger.info('Getting baseline peak loads')
-        self.buildings = building_peak_loads(upgrade=0, residential=-1, target_states=self.target_states)
+        self.buildings = building_peak_loads(upgrade=0, residential=-1, target_states=self.target_states, db_context=self.db_context)
 
     def get_meta(self):
         logger.info('Getting stock metadata')
-        self.building_meta = query_to_df(select(StockMeta).where(StockMeta.state.in_(self.target_states)))
+        query = select(StockMeta).where(StockMeta.state.in_(self.target_states))
+        engine = self.db_context.get_engine()
+        self.building_meta = query_to_df(query, engine)
 
     def calculate_capacity(self):
         self.calculate_existing_capacity()
@@ -243,7 +248,10 @@ class CapacityEstimate:
         logger.info('Estimating required capacity for building techs')
 
         # retrieve calculated load differences - filter by target states
-        all_upgrades = query_to_df(select(LoadDifference).where(LoadDifference.state.in_(self.target_states)))
+        query = select(LoadDifference).where(LoadDifference.state.in_(self.target_states))
+
+        engine = self.db_context.get_engine()
+        all_upgrades = query_to_df(query, engine)
 
         # separate the load difference values based on the upgrades
         hp_load_diff = all_upgrades[all_upgrades['upgrade'].isin(hp_upgrades)]

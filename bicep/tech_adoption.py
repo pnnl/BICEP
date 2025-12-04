@@ -17,7 +17,6 @@ from sqlalchemy import select
 
 import pandas as pd
 import numpy as np
-from utils.local_db_mirror import save_data_file, load_data_file
 
 from utils.db_models import AdoptionForecasts, Technologies, TechMapping, query_to_df
 from utils.sampling import sample_xstock
@@ -29,25 +28,13 @@ class TechnologyAdoption(CapacityEstimate):
     def __init__(self, scenario, base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25, target_states='all', mode='local'):
-        
-        # Store mode for tech projections
-        self.mode = mode
-        
-        # Set database configuration based on mode
-        import utils.config
-        if mode == 'local':
-            utils.config.DATA_LOCATION = 'LOCAL'
-        elif mode == 'database':
-            utils.config.DATA_LOCATION = 'PNNL Database'
-        
-        # Reload db_models to refresh engines with correct configuration
-        import importlib
-        import utils.db_models
-        importlib.reload(utils.db_models)
+                 panel_safety_factor=1.25, target_states='all', mode='local',
+                 db_context=None):
         
         super().__init__(residential_voltage, commercial_voltage, medium_voltage,
-                         max_light_comm_amp, ev_charger_amp, panel_safety_factor, target_states)
+                         max_light_comm_amp, ev_charger_amp, panel_safety_factor, 
+                         target_states, db_context=db_context)
+        self.mode = mode
         self.calculate_capacity()
 
         self.scenario = scenario
@@ -59,8 +46,10 @@ class TechnologyAdoption(CapacityEstimate):
         self.end_year = end_year
         self.epsilon = epsilon
 
-        self.all_techs = query_to_df(select(Technologies))
-        self.tech_mapping = query_to_df(select(TechMapping))
+        # Load technology metadata using database context
+        engine = self.db_context.get_engine()
+        self.all_techs = query_to_df(select(Technologies), engine)
+        self.tech_mapping = query_to_df(select(TechMapping), engine)
         
         # Cache for combined tech projections to avoid reloading data for each technology
         self._combined_data_cache = {}
@@ -71,7 +60,7 @@ class TechnologyAdoption(CapacityEstimate):
             logger.info('Using local file processing for technology adoptions')
         else:
             logger.info('Using database processing for technology adoptions')
-        
+
         logger.info('Calculating adoption rate for EV')
         self._iterative_adoption(tech='ev', tech_project_col='represented_vehicles')
         logger.info('Calculating adoption rate for PV')
@@ -163,7 +152,7 @@ class TechnologyAdoption(CapacityEstimate):
         
         Args:
             scenario (str): Scenario to process ('bau', 'high', 'mid', or 'all')
-            mode (str): 'local' for SQLite database or 'database' for Azure database. 
+            mode (str): 'local' for SQLite database or 'PNNL database' for Azure database.
                        If None, uses self.mode
             
         Returns:
@@ -171,18 +160,19 @@ class TechnologyAdoption(CapacityEstimate):
         """
         # Use instance mode if not specified
         if mode is None:
-            mode = self.mode
+            mode = self.db_context.mode
             
         logger.info(f"Getting technology projections for scenario='{scenario}' mode='{mode}'")
         
         try:
-            # Use query_to_df - engines are now correctly configured in __init__
+            # Use database context for queries
+            engine = self.db_context.get_engine()
             if scenario == 'all':
-                combined_data = query_to_df(select(AdoptionForecasts))
+                combined_data = query_to_df(select(AdoptionForecasts), engine)
             else:
                 combined_data = query_to_df(select(AdoptionForecasts).where(
                     AdoptionForecasts.scenario == scenario
-                ))
+                ), engine)
                 
             logger.info(f"Retrieved {len(combined_data):,} records from {'SQLite' if mode == 'local' else 'Azure'} database for scenario '{scenario}'")
             
@@ -300,4 +290,4 @@ if __name__ == '__main__':
     print("Available parameters:")
     print("  scenario: any scenario string (e.g., 'bau', 'high', 'custom')")
     print("  target_states: list of state codes ['CA', 'TX'] or 'all'")
-    print("  mode: 'local' for SQLite or 'database' for Azure")
+    print("  mode: 'local' for SQLite or 'PNNL database' for Azure")

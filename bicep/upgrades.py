@@ -6,7 +6,10 @@ required additional capacity resulting from the decarbonization technology scena
 from loguru import logger
 import numpy as np
 import numpy_financial as npf
-from utils.db_models import get_state_cost_factors_local
+
+from sqlalchemy import select
+
+from utils.db_models import StateCostFactors, query_to_df, DatabaseContext
 from utils.sampling import PanelUpgradeCostDistribution
 from bicep.tech_adoption import TechnologyAdoption
 
@@ -68,12 +71,16 @@ class UpgradeEstimator(TechnologyAdoption):
         else:
             raise ValueError("target_states must be 'all', a state abbreviation (e.g., 'CA'), or a list of state abbreviations (e.g., ['CA', 'TX'])")
 
+        # Create database context based on mode
+        self.db_context = DatabaseContext(mode=mode)
+
         super().__init__(scenario=scenario, base_year=base_year, end_year=end_year, epsilon=epsilon,
                          residential_voltage=residential_voltage,
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor, target_states=target_states, mode=mode)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states, mode=mode,
+                         db_context=self.db_context)
         self.annualized = annualized_costs
         self.upgrade_lifespan = upgrade_lifespan
         self.cost_distribution = cost_distribution
@@ -141,14 +148,17 @@ class UpgradeEstimator(TechnologyAdoption):
             'upgrade_costs_base'] = commercial_costs
         
         try:
-            logger.info('Retrieving state location factors from local file')
-            state_factors = get_state_cost_factors_local()
+            logger.info('Retrieving state location factors')
+            query = select(StateCostFactors)
+
+            engine = self.db_context.get_engine()
+            state_factors = query_to_df(query, engine)
             factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
             self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
             unmapped = self.buildings[self.buildings['location_factor'] == -999]
             logger.debug(f"There are {len(unmapped)} values that didn't map")
-        except Exception:
-            logger.error("Error applying location factors")
+        except Exception as e:
+            logger.error(f"Error applying location factors: {e}")
             raise RuntimeError("Failed to apply location factors")
         
         self.buildings['upgrade_costs'] = self.buildings['upgrade_costs_base'] * self.buildings['location_factor']

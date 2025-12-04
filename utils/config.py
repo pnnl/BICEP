@@ -3,6 +3,17 @@ BICEP Pipeline Configuration
 
 Centralized configuration for all file paths, directories, and settings used throughout
 the BICEP pipeline. This ensures consistent path handling across all modules.
+
+IMPORTANT: Database configuration has been refactored!
+--------------------------------------------------
+Old approach (deprecated):
+    utils.config.DATA_LOCATION = 'LOCAL'
+    
+New approach (recommended):
+    from utils.database_context import DatabaseContext
+    db_context = DatabaseContext(mode='local')
+
+The new approach uses dependency injection instead of global state mutation.
 """
 
 from pathlib import Path
@@ -23,14 +34,16 @@ PARSED_INPUTS_PATH = DATA_ROOT / 'parsed_inputs'
 REQUIRED_INPUT_PATH = DATA_ROOT / 'required_input'
 
 # ============= DATA LOCATION SETTING =============
+# DEPRECATED: Use DatabaseContext class instead of global DATA_LOCATION
 
-DATA_LOCATION = 'LOCAL'
-try:
-    assert DATA_LOCATION in ('LOCAL', 'PNNL Database')
-except AssertionError as error:
-    logger.error(f'DATA_LOCATION {DATA_LOCATION} is not valid. Must be in ["LOCAL", "PNNL Database"]')
-    logger.error(error)
-    raise AssertionError
+# DATA_LOCATION = 'LOCAL'
+# try:
+#     assert DATA_LOCATION in ('LOCAL', 'PNNL Database')
+# except AssertionError as error:
+#     logger.error(f'DATA_LOCATION {DATA_LOCATION} is not valid. Must be in ["LOCAL", "PNNL Database"]')
+#     logger.error(error)
+#     raise AssertionError
+
 
 # ============= INPUT FILES =============
 
@@ -228,7 +241,6 @@ if __name__ == "__main__":
     print("=" * 40)
     print(f"BICEP Root: {BICEP_ROOT}")
     print(f"Data Root: {DATA_ROOT}")
-    print(f"Data Location: {DATA_LOCATION}")
     print(f"Raw Inputs: {RAW_INPUTS_PATH}")
     print(f"Parsed Inputs: {PARSED_INPUTS_PATH}")
     print(f"Required Inputs: {REQUIRED_INPUT_PATH}")
