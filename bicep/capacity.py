@@ -166,7 +166,7 @@ class CapacityEstimate:
 
     def get_baseline_loads(self):
         logger.info('Getting baseline peak loads')
-        self.buildings = building_peak_loads(upgrade=0, residential=-1, target_states=self.target_states, db_context=self.db_context)
+        self.buildings = building_peak_loads(db_context=self.db_context, upgrade=0, residential=-1, target_states=self.target_states)
 
     def get_meta(self):
         logger.info('Getting stock metadata')
