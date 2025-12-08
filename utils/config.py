@@ -3,35 +3,20 @@ BICEP Pipeline Configuration
 
 Centralized configuration for all file paths, directories, and settings used throughout
 the BICEP pipeline. This ensures consistent path handling across all modules.
-
-IMPORTANT: Database configuration has been refactored!
---------------------------------------------------
-Old approach (deprecated):
-    utils.config.DATA_LOCATION = 'LOCAL'
-    
-New approach (recommended):
-    from utils.database_context import DatabaseContext
-    db_context = DatabaseContext(mode='local')
-
-The new approach uses dependency injection instead of global state mutation.
 """
 
 from pathlib import Path
-import os
 from loguru import logger
 
 # ============= BASE DIRECTORIES =============
 
 # Root directory of the BICEP project (utils/../ = project root)
 BICEP_ROOT = Path(__file__).parent.parent
-ROOT = BICEP_ROOT  # Keep Tim's variable name for compatibility
 
 # Data directories
 DATA_ROOT = BICEP_ROOT / 'data'
-DATA_DIR = DATA_ROOT  # Keep Tim's variable name for compatibility
 RAW_INPUTS_PATH = DATA_ROOT / 'raw_inputs'
 PARSED_INPUTS_PATH = DATA_ROOT / 'parsed_inputs'
-REQUIRED_INPUT_PATH = DATA_ROOT / 'required_input'
 
 # ============= DATA LOCATION SETTING =============
 # DEPRECATED: Use DatabaseContext class instead of global DATA_LOCATION
@@ -45,7 +30,7 @@ REQUIRED_INPUT_PATH = DATA_ROOT / 'required_input'
 #     raise AssertionError
 
 
-# ============= INPUT FILES =============
+# ============= TECHNOLOGY PROJECTION INPUT FILES =============
 
 # Scout scenario files
 SCOUT_BAU_FILE = RAW_INPUTS_PATH / 'Scout_ref_scenario.json'
@@ -57,12 +42,8 @@ EV_PROJECTIONS_FILE = RAW_INPUTS_PATH / 'TEMPO_LDV_EV_county_stock_projections.c
 # PV projection files
 PV_PROJECTIONS_FILE = RAW_INPUTS_PATH / 'ReEDS-distpv_cap-bau_high.csv'
 
-# Hierarchy and mapping files
+# Hierarchy file
 HIERARCHY_FILE = RAW_INPUTS_PATH / 'hierarchy.csv'
-TECHNOLOGY_MAP_FILE = BICEP_ROOT / 'technology_map.csv'
-
-# Required input files
-COST_FACTOR_FILE = REQUIRED_INPUT_PATH / 'cost_factor.csv'
 
 # GitHub data assets that will be downloaded automatically if not present
 BICEP_DATA_ASSETS = ['https://github.com/pnnl/BICEP/releases/download/v0.1-data/adoption-forecasts.parquet',
@@ -72,6 +53,8 @@ BICEP_DATA_ASSETS = ['https://github.com/pnnl/BICEP/releases/download/v0.1-data/
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/stock-meta.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/technologies.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/upgrades.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/CountyHierarchy.parquet',
+                     'https://github.com/pnnl/BICEP/releases/download/v0.1-data/state_cost_factors.parquet',
                      'https://github.com/pnnl/BICEP/releases/download/v0.1-data/bicep.x-stock.db'
                      ]
 
@@ -176,8 +159,7 @@ def ensure_directories():
     """Create necessary directories if they don't exist."""
     directories = [
         RAW_INPUTS_PATH,
-        PARSED_INPUTS_PATH,
-        REQUIRED_INPUT_PATH
+        PARSED_INPUTS_PATH
     ]
     
     for directory in directories:
@@ -190,9 +172,7 @@ def validate_required_files():
     Validate that required input files exist.
     Returns list of missing files.
     """
-    required_files = [
-        COST_FACTOR_FILE,
-    ]
+    required_files = []
     
     missing_files = []
     for file_path in required_files:
@@ -243,7 +223,6 @@ if __name__ == "__main__":
     print(f"Data Root: {DATA_ROOT}")
     print(f"Raw Inputs: {RAW_INPUTS_PATH}")
     print(f"Parsed Inputs: {PARSED_INPUTS_PATH}")
-    print(f"Required Inputs: {REQUIRED_INPUT_PATH}")
     print()
     
     missing_required = validate_required_files()
