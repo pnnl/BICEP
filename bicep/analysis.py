@@ -56,11 +56,13 @@ class BicepResults(UpgradeEstimator):
             if len(self.target_states) == 1:
                 state = self.target_states[0]
             else:
-                state = "ALL"
+                # Multiple states - use descriptive name
+                if len(self.target_states) == 51:  # All US states + DC
+                    state = "ALL"
+                else:
+                    state = "MULTI"
         elif isinstance(self.target_states, str):
             state = self.target_states
-        else:
-            state = self.buildings['state'].iloc[0]
         
         # Save individual state or giant file
         if state == "ALL":
@@ -222,22 +224,42 @@ class BicepAllStates:
     """
     BICEP Individual State Analysis 
     Implements state-by-state processing to avoid national competition effects.
-    Uses exact same variable names and structure as all_states.py for easy identification.
+    Supports analyzing one state, multiple states, or all states.
     """
     
-    def __init__(self, scenario='bau', mode='local', save_results=True):
+    def __init__(self, scenario='bau', mode='local', target_states='all', save_results=True):
         self.scenario = scenario
         self.mode = mode
         self.save_results = save_results
         
-        # list of all unique states
-        self.all_states = [
-            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL',
-            'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
-            'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH',
-            'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
-            'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
-        ]
+        # Validate and set target states using same logic as upgrades.py
+        valid_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 
+                       'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
+                       'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH',
+                       'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
+                       'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+        
+        if target_states == 'all':
+            self.all_states = valid_states
+            logger.info(f"=== Starting Individual State Analysis for {scenario.upper()} scenario ===")
+            logger.info(f"Analyzing all US states (50 states + DC)")
+        elif isinstance(target_states, str):
+            if target_states not in valid_states:
+                raise ValueError(f"Invalid state: {target_states}. Valid states are: {valid_states}")
+            self.all_states = [target_states]
+            logger.info(f"=== Starting Analysis for {scenario.upper()} scenario ===")
+            logger.info(f"Analyzing target state: {target_states}")
+        elif isinstance(target_states, list):
+            invalid_states = [state for state in target_states if state not in valid_states]
+            if invalid_states:
+                raise ValueError(f"Invalid state(s): {invalid_states}. Valid states are: {valid_states}")
+            self.all_states = target_states
+            logger.info(f"=== Starting Individual State Analysis for {scenario.upper()} scenario ===")
+            logger.info(f"Analyzing {len(target_states)} target states: {target_states}")
+        else:
+            raise ValueError("target_states must be 'all', a state abbreviation (e.g., 'CA'), or a list of state abbreviations (e.g., ['CA', 'TX'])")
+        
+        logger.info(f"Total states to analyze: {len(self.all_states)}")
         
         # Run the analysis
         self._run_individual_state_analysis()
@@ -325,23 +347,26 @@ class BicepAllStates:
         PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
         
         # Save aggregate cost summary results
-        self.all_states_results.to_csv(f"data/parsed_inputs/bicep_cost_summary_{self.scenario}.csv", index=False)
+        summary_path = PARSED_INPUTS_PATH / f"bicep_cost_summary_{self.scenario}.csv"
+        self.all_states_results.to_csv(summary_path, index=False)
         
         # Save detailed buildings results  
-        self.all_states_buildings.to_csv(f"data/parsed_inputs/bicep_results_{self.scenario}_all_states.csv", index=False)
+        buildings_path = PARSED_INPUTS_PATH / f"bicep_results_{self.scenario}_all_states.csv"
+        self.all_states_buildings.to_csv(buildings_path, index=False)
         
         # Save meta data
-        self.all_states_meta.to_csv(f"data/parsed_inputs/bicep_meta_{self.scenario}_all_states.csv", index=False)
+        meta_path = PARSED_INPUTS_PATH / f"bicep_meta_{self.scenario}_all_states.csv"
+        self.all_states_meta.to_csv(meta_path, index=False)
         
-        logger.info(f"Saved results to data/parsed_inputs/")
+        logger.info(f"Saved results to {PARSED_INPUTS_PATH}")
 
 
 if __name__ == '__main__':
     print("=== BICEP Analysis ===")
     
     # Run individual state analysis to avoid national competition effects
-    bau_results = BicepAllStates(scenario='bau', mode='local', save_results=True)
-    high_results = BicepAllStates(scenario='high', mode='local', save_results=True)
+    bau_results = BicepAllStates(scenario='bau', mode='PNNL database', save_results=True)
+    high_results = BicepAllStates(scenario='high', mode='PNNL database', save_results=True)
     
     print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
     print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
