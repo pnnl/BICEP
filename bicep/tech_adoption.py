@@ -8,11 +8,6 @@ by dGen/ReEDS.
 """
 
 from loguru import logger
-import sys
-
-logger.remove()
-logger.add(sys.stderr, level="INFO")
-
 from sqlalchemy import select
 
 import pandas as pd
@@ -77,28 +72,17 @@ class TechnologyAdoption(CapacityEstimate):
         except AssertionError:
             raise KeyError(f"Technology must be in {self.all_techs['tech_name'].to_list()}")
 
-        # Load unified adoption forecasts data (contains all scenarios)
-        cache_key = f"unified_{self.mode}"
-        if cache_key not in self._combined_data_cache:
-            logger.info(f"Loading unified adoption forecasts for {self.mode} mode (will be cached)")
-            self._combined_data_cache[cache_key] = self.get_combined_tech_projections(scenario='all', mode=self.mode)
-        else:
-            logger.debug(f"Using cached unified adoption forecasts for {self.mode} mode")
-            
-        combined_data = self._combined_data_cache[cache_key]
+        # Query only the data we need - more efficient than loading everything
+        engine = self.db_context.get_engine()
+        query = select(AdoptionForecasts).where(
+            AdoptionForecasts.tech_name == tech,
+            AdoptionForecasts.state.in_(self.target_states)
+        )
         
-        # Filter for target states and technology
         if sector is not None:
-            projection = combined_data[
-                (combined_data['tech_name'] == tech) & 
-                (combined_data['sector'] == sector) &
-                (combined_data['state'].isin(self.target_states))
-            ].copy()
-        else:
-            projection = combined_data[
-                (combined_data['tech_name'] == tech) &
-                (combined_data['state'].isin(self.target_states))
-            ].copy()
+            query = query.where(AdoptionForecasts.sector == sector)
+        
+        projection = query_to_df(query, engine)
             
         if projection.empty:
             logger.warning(f"No data found for technology {tech} in target states {self.target_states}")
