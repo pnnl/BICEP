@@ -41,10 +41,6 @@ class UpgradeEstimator(TechnologyAdoption):
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
                  panel_safety_factor=1.25, target_states='all', mode='local'):
 
-        # Ensure data assets are available before proceeding
-        from utils.config import ensure_data_assets
-        ensure_data_assets()
-
         # Validate target_states parameter
         valid_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 
                        'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
