@@ -74,7 +74,7 @@ def standardize_scenario_name(scenario_name):
         return None
     return str(scenario_name).strip().lower()
 
-def standardize_dataframe_for_bicep_v1(df):
+def standardize_dataframe_for_bicep(df):
     df_standardized = df.copy()
     if 'state' in df_standardized.columns:
         df_standardized['state'] = df_standardized['state'].apply(standardize_state_name)
@@ -207,7 +207,7 @@ def scout_forecast_local(scenario):
                 except KeyError:
                     pass
 
-    return standardize_dataframe_for_bicep_v1(building_forecast)
+    return standardize_dataframe_for_bicep(building_forecast)
 
 
 def ev_forecast_local(scenario):
@@ -266,7 +266,7 @@ def ev_forecast_local(scenario):
     result_df = pd.DataFrame(result_data)
     result_df['id'] = range(len(result_df))
     
-    return standardize_dataframe_for_bicep_v1(result_df)
+    return standardize_dataframe_for_bicep(result_df)
 
 
 def pv_forecast_local(scenario):
@@ -298,7 +298,7 @@ def pv_forecast_local(scenario):
         'projection_units': 'MW'
     })
     
-    return standardize_dataframe_for_bicep_v1(result)
+    return standardize_dataframe_for_bicep(result)
 
 
 def generate_adoption_forecasts(scenarios=None, output_file=None):
