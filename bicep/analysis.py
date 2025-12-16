@@ -4,10 +4,12 @@ Analysis of the BICEP model run results.
 
 import plotly.express as px
 import plotly.graph_objs as go
+import pandas as pd
 from loguru import logger
 
 from bicep.upgrades import UpgradeEstimator
 from utils.sampling import PanelUpgradeCostDistribution
+from utils.config import PARSED_INPUTS_PATH
 
 
 class BicepResults(UpgradeEstimator):
@@ -46,8 +48,6 @@ class BicepResults(UpgradeEstimator):
 
     def _save_results(self):
         """Save results to CSV with state abbreviation."""
-        from utils.config import PARSED_INPUTS_PATH
-        import pandas as pd
         
         PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
         
@@ -87,7 +87,6 @@ class BicepResults(UpgradeEstimator):
     
     def _create_cost_summary(self):
         """Create cost summary by state and building type."""
-        import pandas as pd
         
         # Group by state and residential/commercial
         summary_data = []
@@ -220,7 +219,7 @@ class BicepResults(UpgradeEstimator):
         capacity.show()
 
 
-class BicepAllStates:
+class BicepMultiStateResults:
     """
     BICEP Individual State Analysis 
     Implements state-by-state processing to avoid national competition effects.
@@ -266,7 +265,6 @@ class BicepAllStates:
     
     def _run_individual_state_analysis(self):
         """Run individual state analysis with state-by-state processing"""
-        import pandas as pd
         
         logger.info("=== BICEP Individual State Analysis ===")
         logger.info("Running each state separately to avoid national competition effects")
@@ -336,13 +334,12 @@ class BicepAllStates:
         
         # Save results if requested
         if self.save_results:
-            self._save_individual_state_results()
+            self.save_results()
         
         logger.info("=== Individual State Analysis Complete ===")
     
-    def _save_individual_state_results(self):
+    def save_results(self):
         """Save results from individual state analysis with standard naming convention"""
-        from utils.config import PARSED_INPUTS_PATH
         
         PARSED_INPUTS_PATH.mkdir(parents=True, exist_ok=True)
         
@@ -364,9 +361,9 @@ class BicepAllStates:
 if __name__ == '__main__':
     print("=== BICEP Analysis ===")
     
-    # Run individual state analysis to avoid national competition effects
-    bau_results = BicepAllStates(scenario='bau', mode='PNNL database', save_results=True)
-    high_results = BicepAllStates(scenario='high', mode='PNNL database', save_results=True)
+    # Run multi-state analysis to avoid national competition effects
+    bau_results = BicepMultiStateResults(scenario='bau', mode='PNNL database', save_results=True)
+    high_results = BicepMultiStateResults(scenario='high', mode='PNNL database', save_results=True)
     
     print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
     print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
