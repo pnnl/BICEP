@@ -69,7 +69,6 @@ def download_data_assets():
     """
     import urllib.request
     import time
-    from pathlib import Path
     
     max_retries = 3
     base_delay = 2  # seconds
