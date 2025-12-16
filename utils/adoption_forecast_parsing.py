@@ -1,11 +1,11 @@
 """
-Module to parse, align, and combined the multi-sector technology adoption forecasts.
+Module to parse, align, and combine the multi-sector technology adoption forecasts.
 """
 
 from io import BytesIO
 import json
 from pathlib import Path
-import logging
+from loguru import logger
 
 import pandas as pd
 
@@ -13,8 +13,6 @@ from azure.storage.blob import BlobServiceClient
 
 from utils.sensitive_config import AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY
 from utils.config import SCOUT_BAU_FILE, SCOUT_HIGH_FILE, EV_PROJECTIONS_FILE, HIERARCHY_FILE, PV_PROJECTIONS_FILE
-
-logger = logging.getLogger(__name__)
 
 # Legacy Azure blob configuration
 container_name = 'bicep'
