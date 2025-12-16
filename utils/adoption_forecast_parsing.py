@@ -4,6 +4,8 @@ Module to parse, align, and combined the multi-sector technology adoption foreca
 
 from io import BytesIO
 import json
+from pathlib import Path
+from loguru import logger
 
 import pandas as pd
 
@@ -21,6 +23,7 @@ service_client = BlobServiceClient(BLOB_URL, credential=AZURE_STORAGE_KEY)
 
 
 def scout_forecast(forecast_blob_name, scenario, metric='stock',):
+    logger.info(f"Downloading Scout forecast '{forecast_blob_name}' for scenario '{scenario}'")
     blob_client = service_client.get_blob_client(container=container_name,
                                                  blob=forecast_blob_name)
 
@@ -56,6 +59,7 @@ def scout_forecast(forecast_blob_name, scenario, metric='stock',):
                 except KeyError:
                     pass
 
+    logger.info(f"Parsed {len(building_forecast)} rows of building stock projections for scenario '{scenario}'")
     return building_forecast
 
 
