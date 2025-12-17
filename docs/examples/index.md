@@ -467,6 +467,198 @@ SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY
 
 ---
 
+## Visualization Methods
+
+BICEP includes several built-in visualization methods to help you understand infrastructure upgrade requirements. All plots are interactive Plotly charts.
+
+### Technology Capacity Requirements: `plot_drivers()`
+
+Shows the additional electrical capacity needed for each decarbonization technology.
+
+```python
+from bicep.analysis import BicepResults
+
+results = BicepResults(scenario='bau', mode='local', target_states='CA')
+
+# Cumulative distribution (default) - shows what percentile of buildings need X amps
+results.plot_drivers(residential=1, cdf=True)
+
+# Histogram view - shows frequency distribution of capacity requirements
+results.plot_drivers(residential=1, cdf=False)
+```
+
+**Parameters:**
+- `residential`: `1` for residential buildings, `0` for commercial, any other value for both
+- `cdf`: `True` for cumulative distribution function, `False` for histogram
+
+**What it shows:**
+- **PV** - Solar photovoltaic capacity requirements (amps)
+- **EV** - Electric vehicle charger capacity requirements (amps)
+- **HP** - Heat pump capacity requirements (amps)
+- **HP WH** - Heat pump water heater capacity requirements (amps)
+
+**Use case:** Identify which technologies are driving the most significant capacity upgrades.
+
+### Peak Load Distribution: `plot_peak_amp_distribution()`
+
+Shows the distribution of peak electrical loads across buildings.
+
+```python
+# View peak amperage distribution for residential buildings
+results.plot_peak_amp_distribution(residential=1)
+
+# View for commercial buildings
+results.plot_peak_amp_distribution(residential=0)
+```
+
+**What it shows:** Histogram of peak electrical load (amps) across all analyzed buildings.
+
+**Use case:** Understand the baseline electrical demand patterns before adding new technologies.
+
+### Spare Capacity Distribution: `plot_spare_capacity()`
+
+Shows how much spare electrical capacity exists in current building panels.
+
+```python
+# View spare capacity for residential buildings
+results.plot_spare_capacity(residential=1)
+```
+
+**What it shows:** Histogram of spare capacity (amps) = installed panel capacity - current peak load.
+
+**Use case:** Identify how many buildings have room for additional load vs. those already near capacity.
+
+### Panel Utilization: `plot_panel_capacity()`
+
+Shows the relationship between installed panel capacity and actual peak load for each building.
+
+```python
+# View panel utilization (log scale recommended for visibility)
+results.plot_panel_capacity(residential=1, log_y=True)
+
+# Linear scale
+results.plot_panel_capacity(residential=1, log_y=False)
+```
+
+**Parameters:**
+- `residential`: `1` for residential, `0` for commercial
+- `log_y`: `True` for logarithmic y-axis (recommended), `False` for linear
+
+**What it shows:** 
+- **Panel Size** (blue) - Installed electrical panel capacity
+- **Peak Load** (red) - Current peak electrical demand
+- Gap between lines = spare capacity available
+
+**Use case:** Visualize the utilization gap across the building stock to understand upgrade headroom.
+
+---
+
+## Understanding Output Data
+
+### Results Attributes
+
+After running an analysis, you can access these attributes:
+
+#### BicepResults Attributes
+
+```python
+results = BicepResults(scenario='bau', mode='local', target_states='CA')
+
+# Cost totals
+results.total_cost                # Total infrastructure upgrade cost ($)
+results.total_residential_costs   # Residential portion ($)
+results.total_commercial_costs    # Commercial portion ($)
+
+# Building-level DataFrames
+results.buildings      # All buildings (residential + commercial)
+results.residential    # Residential buildings only
+results.commercial     # Commercial buildings only
+results.building_meta  # Building metadata
+```
+
+#### BicepMultiStateResults Attributes
+
+```python
+national = BicepMultiStateResults(scenario='bau', mode='local')
+
+# Cost totals (aggregated across all states)
+national.total_cost
+national.total_residential_costs
+national.total_commercial_costs
+
+# Combined DataFrames from all states
+national.all_states_buildings  # All building data combined
+national.all_states_meta       # All metadata combined
+national.all_states_results    # Summary by state (DataFrame)
+```
+
+### Key Columns in Building Results
+
+The `buildings` DataFrame contains detailed information for each analyzed building:
+
+| Column | Description |
+|--------|-------------|
+| `state` | State abbreviation (e.g., 'CA') |
+| `residential` | 1 = residential, 0 = commercial |
+| `sqft` | Building square footage |
+| `peak_amp` | Peak electrical load (amps) |
+| `installed_capacity` | Estimated panel capacity (amps) |
+| `spare_capacity` | Available capacity before upgrade needed |
+| `ev_req_capacity_amp` | Additional amps needed for EV charging |
+| `pv_req_capacity_amp` | Additional amps needed for solar PV |
+| `hp_req_capacity_amp` | Additional amps needed for heat pump |
+| `hpwh_req_capacity_amp` | Additional amps needed for HP water heater |
+| `upgrade_required` | 1 = panel upgrade needed, 0 = no upgrade |
+| `upgrade_costs` | Cost of panel upgrade ($) |
+| `weighted_cost` | Cost weighted by building representation |
+
+### Cost Summary File Structure
+
+The `bicep_cost_summary_{scenario}.csv` file contains:
+
+| Column | Description |
+|--------|-------------|
+| `state` | State abbreviation |
+| `building_type` | 'residential' or 'commercial' |
+| `total_buildings` | Number of buildings analyzed |
+| `buildings_needing_upgrades` | Count requiring panel upgrades |
+| `upgrade_rate_percent` | Percentage of buildings needing upgrades |
+| `total_upgrade_costs` | Sum of upgrade costs ($) |
+| `total_weighted_costs` | Weighted total costs ($) |
+
+### Example: Analyzing Results
+
+```python
+from bicep.analysis import BicepResults
+import pandas as pd
+
+results = BicepResults(scenario='bau', mode='local', target_states=['CA', 'TX'])
+
+# What percentage of buildings need upgrades?
+upgrade_rate = results.buildings['upgrade_required'].mean() * 100
+print(f"Upgrade rate: {upgrade_rate:.1f}%")
+
+# Average upgrade cost for buildings that need one
+needs_upgrade = results.buildings[results.buildings['upgrade_required'] == 1]
+avg_cost = needs_upgrade['upgrade_costs'].mean()
+print(f"Average upgrade cost: ${avg_cost:,.0f}")
+
+# Which technology drives the most capacity needs?
+tech_cols = ['ev_req_capacity_amp', 'pv_req_capacity_amp', 
+             'hp_req_capacity_amp', 'hpwh_req_capacity_amp']
+tech_totals = results.buildings[tech_cols].sum()
+print("\nCapacity requirements by technology:")
+print(tech_totals.sort_values(ascending=False))
+
+# Compare residential vs commercial
+for sector, name in [(1, 'Residential'), (0, 'Commercial')]:
+    sector_data = results.buildings[results.buildings['residential'] == sector]
+    cost = sector_data['weighted_cost'].sum()
+    print(f"{name}: ${cost:,.0f}")
+```
+
+---
+
 ## What's Next?
 
 After working through the basic analysis notebook, you can:
