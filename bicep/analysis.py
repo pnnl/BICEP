@@ -229,7 +229,7 @@ class BicepMultiStateResults:
     def __init__(self, scenario='bau', mode='local', target_states='all', save_results=True):
         self.scenario = scenario
         self.mode = mode
-        self.save_results = save_results
+        self._persist_results = save_results
         
         # Validate and set target states using same logic as upgrades.py
         valid_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 
@@ -315,12 +315,20 @@ class BicepMultiStateResults:
         # Create final DataFrames
         self.all_states_results = pd.DataFrame(aggregate_data)
         
-        # Filter out empty DataFrames to avoid FutureWarning
-        non_empty_buildings = [df for df in buildings_list if not df.empty]
-        non_empty_meta = [df for df in meta_list if not df.empty]
+        # Pre-clean DataFrames to avoid FutureWarning by dropping all-NA columns and skip empty
+        clean_buildings = [
+            df.dropna(axis=1, how="all")
+            for df in buildings_list
+            if not df.empty
+        ]
+        clean_meta = [
+            df.dropna(axis=1, how="all")
+            for df in meta_list
+            if not df.empty
+        ]
         
-        self.all_states_buildings = pd.concat(non_empty_buildings, ignore_index=True) if non_empty_buildings else pd.DataFrame()
-        self.all_states_meta = pd.concat(non_empty_meta, ignore_index=True) if non_empty_meta else pd.DataFrame()
+        self.all_states_buildings = pd.concat(clean_buildings, ignore_index=True) if clean_buildings else pd.DataFrame()
+        self.all_states_meta = pd.concat(clean_meta, ignore_index=True) if clean_meta else pd.DataFrame()
         
         # Calculate and display national totals
         self.total_cost = self.all_states_results['total_cost'].sum()
@@ -333,7 +341,7 @@ class BicepMultiStateResults:
         logger.info(f"Commercial Cost: ${self.total_commercial_costs:,.0f}")
         
         # Save results if requested
-        if self.save_results:
+        if self._persist_results:
             self.save_results()
         
         logger.info("=== Individual State Analysis Complete ===")
@@ -362,8 +370,8 @@ if __name__ == '__main__':
     print("=== BICEP Analysis ===")
     
     # Run multi-state analysis to avoid national competition effects
-    bau_results = BicepMultiStateResults(scenario='bau', mode='PNNL database', save_results=True)
-    high_results = BicepMultiStateResults(scenario='high', mode='PNNL database', save_results=True)
+    bau_results = BicepMultiStateResults(scenario='bau', mode='local', save_results=True)
+    high_results = BicepMultiStateResults(scenario='high', mode='local', save_results=True)
     
     print(f'BAU scenario - total cost: ${bau_results.total_cost:,.0f}')
     print(f'HIGH scenario - total cost: ${high_results.total_cost:,.0f}')
