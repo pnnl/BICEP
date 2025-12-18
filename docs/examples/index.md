@@ -298,6 +298,175 @@ for name, results in scenarios.items():
 5. **Filter by residential/commercial**: Most methods accept a `residential` parameter to focus your analysis
 6. **Explore interactively**: Use Jupyter notebooks to iteratively explore results and visualizations
 
+---
+
+## Running BICEP: Modes and State Selection
+
+BICEP supports flexible execution modes and state targeting. This section shows how to run analyses for different geographic scopes.
+
+### Data Modes
+
+BICEP can run in two data modes:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `'local'` | Uses local parquet files in `data/` | Offline analysis, faster execution |
+| `'PNNL database'` | Connects to PNNL's remote database | Access to latest data |
+
+### Running in Local Mode
+
+Local mode uses pre-downloaded data files. This is the recommended mode for most users.
+
+```python
+from bicep.analysis import BicepResults
+
+# Run analysis using local data files
+results = BicepResults(
+    scenario='bau',
+    mode='local'  # Uses local parquet files
+)
+
+print(f"Total cost: ${results.total_cost:,.0f}")
+```
+
+### Running for a Single State
+
+To analyze just one state, use the `target_states` parameter with a state abbreviation:
+
+```python
+from bicep.analysis import BicepResults
+
+# Analyze only California
+ca_results = BicepResults(
+    scenario='bau',
+    mode='local',
+    target_states='CA'
+)
+
+print(f"California total cost: ${ca_results.total_cost:,.0f}")
+print(f"Residential: ${ca_results.total_residential_costs:,.0f}")
+print(f"Commercial: ${ca_results.total_commercial_costs:,.0f}")
+
+# Access California building data
+ca_buildings = ca_results.buildings
+print(f"Buildings analyzed: {len(ca_buildings):,}")
+```
+
+### Running for Multiple States
+
+Pass a list of state abbreviations to analyze multiple states together:
+
+```python
+from bicep.analysis import BicepResults
+
+# Analyze West Coast states
+west_coast = BicepResults(
+    scenario='bau',
+    mode='local',
+    target_states=['CA', 'OR', 'WA']
+)
+
+print(f"West Coast total cost: ${west_coast.total_cost:,.0f}")
+
+# Break down by state
+for state in ['CA', 'OR', 'WA']:
+    state_data = west_coast.buildings[west_coast.buildings['state'] == state]
+    state_cost = state_data['weighted_cost'].sum()
+    print(f"  {state}: ${state_cost:,.0f}")
+```
+
+### Running for All States (Multi-State Analysis)
+
+For national analysis, use `BicepMultiStateResults` which processes each state individually to avoid competition effects, then combines results:
+
+```python
+from bicep.analysis import BicepMultiStateResults
+
+# Run analysis for all 50 states + DC
+national = BicepMultiStateResults(
+    scenario='bau',
+    mode='local',
+    target_states='all',      # Analyze all states
+    save_results=True         # Save outputs to CSV files
+)
+
+# Access national totals
+print(f"National total cost: ${national.total_cost:,.0f}")
+print(f"Residential: ${national.total_residential_costs:,.0f}")
+print(f"Commercial: ${national.total_commercial_costs:,.0f}")
+
+# Access combined data from all states
+all_buildings = national.all_states_buildings
+all_meta = national.all_states_meta
+state_summary = national.all_states_results
+
+print(f"\nTotal buildings analyzed: {len(all_buildings):,}")
+print(f"States included: {len(state_summary)}")
+```
+
+### Multi-State Analysis with Custom State List
+
+You can also use `BicepMultiStateResults` for a subset of states:
+
+```python
+from bicep.analysis import BicepMultiStateResults
+
+# Analyze only specific regions
+southeast = BicepMultiStateResults(
+    scenario='high',
+    mode='local',
+    target_states=['FL', 'GA', 'NC', 'SC', 'TN', 'AL'],
+    save_results=False  # Don't save to files
+)
+
+print(f"Southeast region cost: ${southeast.total_cost:,.0f}")
+
+# View per-state breakdown
+print(southeast.all_states_results)
+```
+
+### Output Files
+
+When `save_results=True`, BICEP saves three CSV files to `data/parsed_inputs/`:
+
+| File | Description |
+|------|-------------|
+| `bicep_cost_summary_{scenario}.csv` | Aggregate costs by state and building type |
+| `bicep_results_{scenario}_all_states.csv` | Detailed building-level results |
+| `bicep_meta_{scenario}_all_states.csv` | Building metadata |
+
+```python
+# Files are saved automatically when save_results=True
+results = BicepMultiStateResults(
+    scenario='bau',
+    mode='local',
+    save_results=True
+)
+
+# Or manually save later
+results.save_results()
+```
+
+### Quick Reference: State Targeting
+
+| Target | Code Example |
+|--------|--------------|
+| Single state | `target_states='CA'` |
+| Multiple states | `target_states=['CA', 'TX', 'NY']` |
+| All states | `target_states='all'` |
+
+### Valid State Abbreviations
+
+BICEP supports all 50 US states plus Washington DC:
+
+```
+AL, AK, AZ, AR, CA, CO, CT, DE, DC, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME,
+MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI,
+SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY
+```
+
+---
+
 ## What's Next?
 
 After working through the basic analysis notebook, you can:
