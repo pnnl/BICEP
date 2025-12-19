@@ -6,6 +6,9 @@ the BICEP pipeline. This ensures consistent path handling across all modules.
 """
 
 from pathlib import Path
+import time
+import urllib.request
+
 from loguru import logger
 
 # ============= BASE DIRECTORIES =============
@@ -67,9 +70,6 @@ def download_data_assets():
     Download required data assets from GitHub releases if they don't exist locally.
     Includes built-in retry logic with exponential backoff for temporary failures.
     """
-    import urllib.request
-    import time
-    
     max_retries = 3
     base_delay = 2  # seconds
     
