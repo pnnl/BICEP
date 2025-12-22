@@ -6,7 +6,10 @@ required additional capacity resulting from the decarbonization technology scena
 from loguru import logger
 import numpy as np
 import numpy_financial as npf
-from utils.db_models import get_state_cost_factors
+
+from sqlalchemy import select
+
+from utils.db_models import StateCostFactors, query_to_df, DatabaseContext
 from utils.sampling import PanelUpgradeCostDistribution
 from bicep.tech_adoption import TechnologyAdoption
 
@@ -36,14 +39,44 @@ class UpgradeEstimator(TechnologyAdoption):
                  scenario='bau', base_year=2020, end_year=2050, epsilon=0.0001,
                  residential_voltage=240, commercial_voltage=480,
                  medium_voltage=12470, max_light_comm_amp=1000, ev_charger_amp=50,
-                 panel_safety_factor=1.25):
+                 panel_safety_factor=1.25, target_states='all', mode='local'):
+
+        # Validate target_states parameter
+        valid_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 
+                       'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME',
+                       'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH',
+                       'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI',
+                       'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+        
+        if target_states == 'all':
+            # Use all states
+            target_states = valid_states
+            logger.info("Analyzing all US states (50 states + DC)")
+        elif isinstance(target_states, str):
+            # Single state provided as string
+            target_states = [target_states]
+            if target_states[0] not in valid_states:
+                raise ValueError(f"Invalid state: {target_states[0]}. Valid states are: {valid_states}")
+            logger.info(f"Analyzing target state: {target_states[0]}")
+        elif isinstance(target_states, list):
+            # List of states provided
+            invalid_states = [state for state in target_states if state not in valid_states]
+            if invalid_states:
+                raise ValueError(f"Invalid state(s): {invalid_states}. Valid states are: {valid_states}")
+            logger.info(f"Analyzing target states: {target_states}")
+        else:
+            raise ValueError("target_states must be 'all', a state abbreviation (e.g., 'CA'), or a list of state abbreviations (e.g., ['CA', 'TX'])")
+
+        # Create database context based on mode
+        self.db_context = DatabaseContext(mode=mode)
 
         super().__init__(scenario=scenario, base_year=base_year, end_year=end_year, epsilon=epsilon,
                          residential_voltage=residential_voltage,
                          commercial_voltage=commercial_voltage,
                          medium_voltage=medium_voltage, max_light_comm_amp=max_light_comm_amp,
                          ev_charger_amp=ev_charger_amp,
-                         panel_safety_factor=panel_safety_factor)
+                         panel_safety_factor=panel_safety_factor, target_states=target_states, mode=mode,
+                         db_context=self.db_context)
         self.annualized = annualized_costs
         self.upgrade_lifespan = upgrade_lifespan
         self.cost_distribution = cost_distribution
@@ -111,14 +144,17 @@ class UpgradeEstimator(TechnologyAdoption):
             'upgrade_costs_base'] = commercial_costs
         
         try:
-            logger.info('Retrieving state location factors from database')
-            state_factors = get_state_cost_factors()
+            logger.info('Retrieving state location factors')
+            query = select(StateCostFactors)
+
+            engine = self.db_context.get_engine()
+            state_factors = query_to_df(query, engine)
             factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
             self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
             unmapped = self.buildings[self.buildings['location_factor'] == -999]
             logger.debug(f"There are {len(unmapped)} values that didn't map")
-        except Exception:
-            logger.error("Error applying location factors")
+        except Exception as e:
+            logger.error(f"Error applying location factors: {e}")
             raise RuntimeError("Failed to apply location factors")
         
         self.buildings['upgrade_costs'] = self.buildings['upgrade_costs_base'] * self.buildings['location_factor']

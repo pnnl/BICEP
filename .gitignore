@@ -1,5 +1,10 @@
 sensitive_config.py
 
+# Ignore data files - stored as assets in GitHub release
+data/
+
+# Ignore logs
+*.log
 
 # pycharm stuff
 .idea/

@@ -8,7 +8,7 @@ User credentials are stored in ./utils/sensitive_config.py.
 
 import datetime
 import pandas as pd
-
+from contextlib import contextmanager
 
 from loguru import logger
 
@@ -17,30 +17,74 @@ from sqlalchemy.pool import NullPool
 
 from sqlalchemy.types import Integer, String, Float
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
-from sqlalchemy.dialects.mssql import DATETIME2
 
 from utils.sensitive_config import sql_server_admin, sql_server_pass
+from utils.config import DATA_ROOT, ensure_data_assets
 
-ENABLE_TIMING = False
-LOG_LEVEL = 'INFO'
-
-dialect_driver = 'mssql+pymssql'
-user_creds = f'{sql_server_admin}:{sql_server_pass}'
-host_port = 'bicep-sql-server.database.windows.net:1433'
 DATABASES = ['x-stock', ]
 
 
-def create_engine(database):
-    database_url = f'{dialect_driver}://{user_creds}@{host_port}/{database}'
-    return sqlalchemy.create_engine(database_url)
+class DatabaseContext:
+    """
+    Manages database connections and engines for BICEP.
+    Supports both local SQLite and remote MSSQL on PNNL Azure Cloud configurations.
+    """
+
+    def __init__(self, mode='local'):
+        """
+        Initialize database context.
+
+        Args:
+            mode: Either 'local' for SQLite or 'PNNL database' for MSSQL host on PNNL Azure cloud
+        """
+        self.mode = mode
+        self._engines = {}
+
+    def get_engine(self, database='x-stock'):
+        """Get or create engine for the specified database."""
+        if database not in self._engines:
+            self._engines[database] = self._create_engine(database)
+        return self._engines[database]
+
+    def _create_engine(self, database):
+        """Create database engine based on mode configuration."""
+        if self.mode == 'local':
+            ensure_data_assets()
+            sqlite_file = DATA_ROOT / 'bicep.x-stock.db'
+            if not sqlite_file.exists():
+                raise FileNotFoundError(f"SQLite database not found: {sqlite_file}")
+            database_url = f'sqlite:///{sqlite_file}'
+            logger.info(f'Connecting to database: {database_url}')
+            return sqlalchemy.create_engine(database_url)
+
+        elif self.mode == 'PNNL database':
+            dialect_driver = 'mssql+pymssql'
+            user_creds = f'{sql_server_admin}:{sql_server_pass}'
+            host_port = 'bicep-sql-server.database.windows.net:1433'
+            database_url = f'{dialect_driver}://{user_creds}@{host_port}/{database}'
+            logger.info(f'Connecting to database: {database_url}')
+            return sqlalchemy.create_engine(database_url, poolclass=NullPool)
+
+        else:
+            raise ValueError(f'Invalid mode: {self.mode}. Must be "local" or "PNNL database"')
+
+    @contextmanager
+    def connection(self, database='x-stock'):
+        """Context manager for database connections."""
+        engine = self.get_engine(database)
+        with engine.connect() as conn:
+            yield conn
+
+    def close_all(self):
+        """Close all engine connections."""
+        for engine in self._engines.values():
+            engine.dispose()
+        self._engines.clear()
 
 
 def validate_database(database):
     if database not in DATABASES:
         raise KeyError(f'{database} not in {DATABASES}')
-
-
-engines = {database: create_engine(database) for database in DATABASES}
 
 
 # Base class for ORM x-stock tables
@@ -54,7 +98,7 @@ class PeakLoad(Base):
     building_id: Mapped[int] = mapped_column(Integer,
                                              primary_key=True)
     max_elec_consumption_kwh: Mapped[float]
-    timestamp: Mapped[datetime.datetime] = mapped_column(DATETIME2())
+    timestamp: Mapped[datetime.datetime] = mapped_column(sqlalchemy.DateTime())
     upgrade: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
     state: Mapped[str]
     file_path: Mapped[str]
@@ -164,79 +208,77 @@ class Upgrades(Base):
     cost_avg: Mapped[float]
 
 
-def create_lookup_tables(database='x-stock'):
-    Base.metadata.create_all(engines[database], checkfirst=True)
+class StateCostFactors(Base):
+    __tablename__ = 'state_cost_factors'
+
+    State: Mapped[int] = mapped_column(String, primary_key=True)
+    Factor: Mapped[float]
+
+
+def create_lookup_tables(db_context, database='x-stock'):
+    """Create lookup tables using provided database context."""
+    engine = db_context.get_engine(database)
+    Base.metadata.create_all(engine, checkfirst=True)
     logger.info('Created lookup tables')
 
 
-def query_to_df(query, database='x-stock', params=None):
-    """Run a raw sql query and return the result as a dataframe"""
-    validate_database(database)
+def query_to_df(query, engine, params=None):
+    """
+    Run a raw sql query and return the result as a dataframe
+    
+    Args:
+        query: SQL query string or SQLAlchemy query object
+        engine: SQLAlchemy engine instance (required)
+        params: Query parameters
+    """
     try:
         sql, params = query.sql()
     except AttributeError:
         sql = query
         params = params
     try:
-        data = pd.read_sql_query(sql=sql, con=engines[database], params=params)
+        data = pd.read_sql_query(sql=sql, con=engine, params=params)
         return data
-    except sqlalchemy.exc.OperationalError:
+    except sqlalchemy.exc.OperationalError as e:
         import time
         attempts = 10
         for attempt in range(attempts):
-            logger.error('Unable to reach the DB. Attempting db connection again. '
+            logger.error(e)
+            logger.error('Unable to reach the DB. It may be paused. Attempting db connection again. '
                          f'Attempt: {attempt} of {attempts}')
             time.sleep(6)
             try:
                 data = pd.read_sql_query(sql=sql,
-                                         con=engines[database],
+                                         con=engine,
                                          params=params)
                 return data
-            except sqlalchemy.exc.OperationalError:
+            except sqlalchemy.exc.OperationalError as error:
+                logger.debug(error)
                 continue
 
         raise ConnectionError("Connection to the database cannot be established. "
                               "Please try refreshing the page.")
 
 
-def get_state_cost_factors():
-    """
-    Retrieve state location cost factors from the database.
-    """
-    query = """
-    SELECT State, Factor 
-    FROM dbo.state_cost_factors
-    """
-    return query_to_df(query)
-
-
-def get_new_pv_data():
-    """
-    Retrieve PV forecast data and hierarchy data from new tables.
-    
-    Returns:
-    --------
-    tuple: (pv_data, hierarchy_data)
-        Two dataframes containing the raw PV forecast data and county-state mapping
-    """
-    # Query for PV forecast data
-    pv_query = """
-    SELECT * 
-    FROM dbo.distpvcap_stscen2023_mid_case
-    """
-    
-    # Query for hierarchy data using the correct table name
-    hierarchy_query = """
-    SELECT county_id, st as state, ba
-    FROM dbo.CountyHierarchy
-    """
-    
-    # Execute queries
-    pv_data = query_to_df(pv_query)
-    hierarchy_data = query_to_df(hierarchy_query)
-    
-    return pv_data, hierarchy_data
-
-
 if __name__ == '__main__':
-    create_lookup_tables()
+    # create_lookup_tables()
+    from sqlalchemy import select
+
+    local_db_context = DatabaseContext(mode='local')
+    pnnl_db_context = DatabaseContext(mode='PNNL database')
+
+    q = select(PeakLoad).where(PeakLoad.upgrade == 0,
+                                   PeakLoad.residential == 1,
+                                   PeakLoad.state == 'PA')
+
+    df_local = query_to_df(q, engine=local_db_context.get_engine())
+    df_pnnl = query_to_df(q, engine=pnnl_db_context.get_engine())
+
+    df_pnnl.sort_values('building_id', inplace=True)
+    df_local.sort_values('building_id', inplace=True)
+
+    df_pnnl.reset_index(drop=True, inplace=True)
+    df_local.reset_index(drop=True, inplace=True)
+
+    assert df_pnnl.equals(df_local)
+
