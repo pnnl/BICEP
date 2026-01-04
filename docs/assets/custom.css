@@ -1,0 +1,92 @@
+/* Professional color palette for consistent branding */
+:root {
+  --color-primary: #f59e0b;
+  --color-primary-dark: #d97706;
+  --color-primary-darker: #b45309;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-focus: #fcd34d;
+}
+
+/* Links - consistent and accessible */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:visited {
+  color: var(--color-primary-dark);
+}
+
+a:hover {
+  color: var(--color-primary-darker);
+  text-decoration: underline;
+}
+
+/* Buttons - clean and professional styling */
+.btn,
+button,
+input[type="button"],
+input[type="submit"],
+[role="button"] {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn:hover,
+button:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+[role="button"]:hover {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.btn:active,
+button:active,
+input[type="button"]:active,
+input[type="submit"]:active,
+[role="button"]:active {
+  background-color: var(--color-primary-darker);
+  border-color: var(--color-primary-darker);
+}
+
+.btn:disabled,
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled {
+  background-color: var(--color-text-secondary);
+  border-color: var(--color-text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Primary button variant - used in headers and CTAs */
+.btn.btn-primary,
+.site-header .btn,
+.site-footer .btn,
+a.btn {
+  background-color: var(--color-primary) !important;
+  color: #ffffff !important;
+}
+
+.btn.btn-primary:hover,
+.site-header .btn:hover,
+.site-footer .btn:hover,
+a.btn:hover {
+  background-color: var(--color-primary-dark) !important;
+}
+
+.btn.btn-primary:active {
+  background-color: var(--color-primary-darker) !important;
+}
+
+
+
+
