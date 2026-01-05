@@ -8,6 +8,8 @@ nav_order: 5
 
 This page provides an overview of the main classes and functions in BICEP. For complete implementation details, see the source code.
 
+**→ [View Full Reference (Utilities & Helper Functions)](#utility-classes)**
+
 ## Core Classes
 
 ### `CapacityEstimate`

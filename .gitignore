@@ -1,5 +1,10 @@
 sensitive_config.py
 
+# Data files - should not be committed
+data/**/*.csv
+data/**/*.parquet
+data/**/*.db
+data/**/*.json
 
 # pycharm stuff
 .idea/

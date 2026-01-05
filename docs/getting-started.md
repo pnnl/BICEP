@@ -26,7 +26,7 @@ nav_order: 2
 
 ### Step 1: Install Python and Conda
 
-#### Option A: Using Anaconda (Recommended)
+**Option A: Using Anaconda (Recommended)**
 
 1. Download and install [Anaconda](https://www.anaconda.com/download) for your operating system
 2. Verify installation:
@@ -35,7 +35,7 @@ nav_order: 2
    python --version
    ```
 
-#### Option B: Using Miniconda (Lightweight Alternative)
+**Option B: Using Miniconda (Lightweight Alternative)**
 
 1. Download and install [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/) for your operating system
 2. Verify installation:
@@ -44,7 +44,7 @@ nav_order: 2
    python --version
    ```
 
-#### Option C: Using Python Virtual Environment (pip)
+**Option C: Using Python Virtual Environment (pip)**
 
 If you prefer not to use Conda:
 
@@ -70,7 +70,7 @@ If you prefer not to use Conda:
 
 ### Step 2: Create BICEP Environment
 
-#### Using Conda (Recommended)
+**Using Conda (Recommended)**
 
 Create a dedicated conda environment for BICEP:
 
@@ -82,7 +82,7 @@ conda create -n bicep-env python=3.11
 conda activate bicep-env
 ```
 
-#### Install Dependencies with Conda
+**Install Dependencies with Conda**
 
 ```bash
 # Install core dependencies
@@ -94,7 +94,7 @@ conda install --file requirements.txt
 
 ### Step 3: Install BICEP
 
-#### From GitHub
+**From GitHub**
 
 ```bash
 # Clone the repository
@@ -108,7 +108,7 @@ pip install -e .
 pip install -r requirements.txt
 ```
 
-#### Verify Installation
+**Verify Installation**
 
 ```bash
 # Check that BICEP modules can be imported
@@ -120,7 +120,7 @@ python -c "import sys; print(f'Python: {sys.version}'); import numpy; print(f'Nu
 
 ### Step 4: Set Up Jupyter (For Notebooks)
 
-#### Install Jupyter
+**Install Jupyter**
 
 ```bash
 # Install Jupyter in the bicep-env environment
@@ -131,7 +131,7 @@ conda install jupyter jupyterlab
 pip install jupyter jupyterlab
 ```
 
-#### Configure Jupyter Kernel
+**Configure Jupyter Kernel**
 
 Make the `bicep-env` available as a Jupyter kernel:
 
@@ -144,7 +144,7 @@ python -m ipykernel install --user --name bicep-env --display-name "Python (bice
 jupyter kernelspec list
 ```
 
-#### Launch Jupyter
+**Launch Jupyter**
 
 ```bash
 # Activate the environment
