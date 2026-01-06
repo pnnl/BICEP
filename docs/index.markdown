@@ -40,7 +40,7 @@ results.plot_drivers(residential=1)
 - [Getting Started](getting-started.md) - Installation and first steps
 - [Data Requirements](data-requirements.md) - Input data formats and sources  
 - [Methodology](methodology.md) - Model approach and validation
-- [Examples](examples/) - Workflow tutorials and use cases
+- [Examples](examples/index.md) - Workflow tutorials and use cases
 - [API Reference](api-reference.md) - Key classes and functions
 
 ## Citation

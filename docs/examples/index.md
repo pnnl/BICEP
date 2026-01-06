@@ -14,19 +14,19 @@ This section provides hands-on examples demonstrating how to use BICEP for elect
 
 We provide several Jupyter notebooks that demonstrate different aspects of BICEP:
 
-1. **[basic-analysis.ipynb](https://github.com/pnnl/BICEP/tree/docs/examples/notebooks)** - Basic analysis workflow
+1. **[basic-analysis.ipynb](notebooks/basic-analysis.ipynb)** - Basic analysis workflow
    - Setting up BICEP analysis
    - Loading pre-computed scenario results
    - Calculating and visualizing costs
    - Key cost drivers
 
-2. **[data-requirements.ipynb](data-requirements.md)** - Understanding input data
+2. **[data-requirements.ipynb](notebooks/data-requirements.ipynb)** - Understanding input data
    - Input data structure and requirements
    - Available technologies and projections
    - Technology forecasts across scenarios
    - Custom forecast integration
 
-3. **[scenario-comparison.ipynb](scenario-comparison.md)** - Comparing scenarios
+3. **[scenario-comparison.ipynb](notebooks/scenario-comparison.ipynb)** - Comparing scenarios
    - BAU vs High load growth scenarios
    - Scenario comparison plots and analysis
    - Cost differences and implications

@@ -15,7 +15,7 @@ a {
 }
 
 a:visited {
-  color: var(--color-primary-dark);
+  color: var(--color-primary);
 }
 
 a:hover {
