@@ -1,10 +1,10 @@
 sensitive_config.py
 
-# Data files - should not be committed
-data/**/*.csv
-data/**/*.parquet
-data/**/*.db
-data/**/*.json
+# Ignore data files - stored as assets in GitHub release
+data/
+
+# Ignore logs
+*.log
 
 # pycharm stuff
 .idea/
