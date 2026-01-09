@@ -51,6 +51,8 @@ Estimates capacity from building electrical load data using **National Electric 
 
 ## 2. Technology Adoption Forecasting
 
+**Note:** The datasets and forecasts used in this documentation are for illustrative purposes only. The BICEP tool is intended to be run on any arbitrary technology time series projection. To use your own forecasts, you only need base and end years along with the stock count at those times.
+
 BICEP incorporates four electrification technologies with adoption forecasts from sector models:
 
 ### Heat Pumps (HP) and Heat Pump Water Heaters (HPWH)
