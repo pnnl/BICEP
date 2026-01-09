@@ -203,7 +203,7 @@ BICEP analysis typically follows this pattern:
 ```python
 from bicep.analysis import BicepResults
 
-# Create results for a scenario
+# Create results for a scenario with illustrative datasets
 results = BicepResults(scenario='bau')  # or 'high'
 
 # View total costs
