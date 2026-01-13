@@ -1,14 +1,19 @@
-/* Professional PNL color palette for consistent */
+/* PNNL color palette */
 :root {
-  --color-primary: #f59e0b;
+  --color-primary: #C56025;
   --color-primary-dark: #d97706;
-  --color-primary-darker: #b45309;
+  --color-primary-darker: #f59e0b;
   --color-text-secondary: #6b7280;
   --color-border: #e5e7eb;
   --color-focus: #fcd34d;
 }
 
-/* Links - consistent and accessible */
+:root,
+[data-color-mode="light"] {
+  --btn-primary-bgcolor: #f59e0b;
+}
+
+/* Links */
 a {
   color: var(--color-primary);
   text-decoration: none;
@@ -19,11 +24,25 @@ a:visited {
 }
 
 a:hover {
-  color: var(--color-primary-darker);
-  text-decoration: underline;
+  color: var(--color-primary-darker) !important;
+  text-decoration: underline !important;
+  text-decoration-color: var(--color-primary-darker) !important;
 }
 
-/* Buttons - clean and professional styling */
+.main-content a:hover,
+.site-nav a:hover,
+.breadcrumb-nav a:hover,
+.side-bar a:hover,
+p a:hover,
+li a:hover,
+td a:hover,
+.main a:hover {
+  color: var(--color-primary-darker) !important;
+  text-decoration: underline !important;
+  text-decoration-color: var(--color-primary-darker) !important;
+}
+
+/* Buttons */
 .btn,
 button,
 input[type="button"],
@@ -67,26 +86,105 @@ input[type="submit"]:disabled {
   cursor: not-allowed;
 }
 
-/* Primary button variant - used in headers and CTAs */
 .btn.btn-primary,
 .site-header .btn,
 .site-footer .btn,
 a.btn {
-  background-color: var(--color-primary) !important;
+  background-color: #C56025 !important;
   color: #ffffff !important;
+  border-color: #C56025 !important;
 }
 
 .btn.btn-primary:hover,
 .site-header .btn:hover,
 .site-footer .btn:hover,
 a.btn:hover {
-  background-color: var(--color-primary-dark) !important;
+  background-color: #d97706 !important;
+  border-color: #d97706 !important;
 }
 
 .btn.btn-primary:active {
-  background-color: var(--color-primary-darker) !important;
+  background-color: #92400e !important;
+  border-color: #92400e !important;
 }
 
+a::before,
+a::after {
+  color: inherit !important;
+}
 
+.anchor-heading svg {
+  color: var(--color-primary) !important;
+}
 
+/* Search */
+.search-input {
+  border-color: var(--color-primary) !important;
+}
 
+.search-input:focus {
+  border-color: var(--color-primary-dark) !important;
+  box-shadow: 0 0 0 3px rgba(197, 96, 37, 0.1) !important;
+}
+
+.search-button {
+  color: var(--color-primary) !important;
+}
+
+.search-button:hover {
+  color: var(--color-primary-dark) !important;
+}
+
+.search-button svg,
+.search-button svg *,
+.search-input-wrap button svg,
+.search-input-wrap button svg *,
+.search-input-wrap svg,
+.search-input-wrap svg * {
+  fill: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+  stroke: var(--color-primary) !important;
+}
+
+.nav-list svg,
+.nav-list svg *,
+.search-result svg,
+.search-result svg * {
+  fill: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* Get started button */
+.get-started-btn {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  background-color: #C56025;
+  color: white !important;
+  text-decoration: none !important;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+  margin-right: 0.5rem;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.get-started-btn:hover {
+  background-color: #9e4a1a;
+  color: white !important;
+  text-decoration: none !important;
+}
+
+.get-started-btn:active {
+  background-color: #8a411a;
+}
+
+/* Hide code copy button */
+div.highlighter-rouge > button,
+figure.highlight > button,
+div.listingblock > div.content > button,
+#svg-copy,
+#svg-copied {
+  display: none !important;
+}

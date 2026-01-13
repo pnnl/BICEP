@@ -302,6 +302,6 @@ pip install -e .
 After setting up your environment:
 
 1. **Run the Examples** - Follow the interactive notebooks in [Examples](examples/)
-2. **Read the API Reference** - Explore [API Reference](api-reference.md) for detailed method documentation
-3. **Understand the Methodology** - See [Methodology](methodology.md) for technical details
-4. **Customize Your Analysis** - Use the methods documented in [API Reference](api-reference.md) to create custom analyses
+2. **Read the API Reference** - Explore [API Reference](api-reference.html) for detailed method documentation
+3. **Understand the Methodology** - See [Methodology](methodology.html) for technical details
+4. **Customize Your Analysis** - Use the methods documented in [API Reference](api-reference.html) to create custom analyses

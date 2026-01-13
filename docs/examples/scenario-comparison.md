@@ -193,6 +193,6 @@ state_summary['per_capita_cost'] = (
 
 ## Next Steps
 
-- **[Data Requirements](data-requirements.md)** - Understand technology adoption assumptions
-- **[Custom Distributions](custom-distributions.md)** - Explore cost uncertainty and variation
-- **[API Reference](../api-reference.md)** - Access all analysis methods
+- **[Data Requirements](data-requirements.html)** - Understand technology adoption assumptions
+- **[Custom Distributions](custom-distributions.html)** - Explore cost uncertainty and variation
+- **[API Reference](../api-reference.html)** - Access all analysis methods

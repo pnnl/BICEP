@@ -12,7 +12,7 @@ permalink: /
 Behind-the-meter Infrastructure Costs for Electrification Progression
 {: .fs-6 .fw-300 }
 
-[Get started now](#quick-start){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Get started now](#quick-start){: .get-started-btn }
 
 # BICEP User Guide
 
@@ -37,11 +37,11 @@ results.plot_drivers(residential=1)
 
 ## Documentation
 
-- [Getting Started](getting-started.md) - Installation and first steps
-- [Data Requirements](data-requirements.md) - Input data formats and sources  
-- [Methodology](methodology.md) - Model approach and validation
-- [Examples](examples/index.md) - Workflow tutorials and use cases
-- [API Reference](api-reference.md) - Key classes and functions
+- [Getting Started](getting-started.html) - Installation and first steps
+- [Data Requirements](examples/data-requirements.html) - Input data formats and sources  
+- [Methodology](methodology.html) - Model approach and validation
+- [Examples](examples/index.html) - Workflow tutorials and use cases
+- [API Reference](api-reference.html) - Key classes and functions
 
 ## Citation
 

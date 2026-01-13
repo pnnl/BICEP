@@ -49,7 +49,7 @@ BICEP uses probability distributions for infrastructure upgrade costs:
 - Transformer upgrades
 - Material and labor cost variations
 
-See the [Custom Distributions](custom-distributions.md) page for details on cost modeling.
+See the [Custom Distributions](custom-distributions.html) page for details on cost modeling.
 
 ## Using the Data Requirements Notebook
 
@@ -209,6 +209,6 @@ validate_custom_forecasts(custom_forecasts)
 
 ## Next Steps
 
-- **[Scenario Comparison](scenario-comparison.md)** - Compare BAU and High scenarios
-- **[Custom Distributions](custom-distributions.md)** - Learn about cost distributions
-- **[API Reference](../api-reference.md)** - Complete technical documentation
+- **[Scenario Comparison](scenario-comparison.html)** - Compare BAU and High scenarios
+- **[Custom Distributions](custom-distributions.html)** - Learn about cost distributions
+- **[API Reference](../api-reference.html)** - Complete technical documentation

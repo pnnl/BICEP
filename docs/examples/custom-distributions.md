@@ -363,6 +363,6 @@ else:
 
 ## Next Steps
 
-- **[Data Requirements](data-requirements.md)** - Understand technology adoption
-- **[Scenario Comparison](scenario-comparison.md)** - Compare cost scenarios
-- **[API Reference](../api-reference.md)** - Full API documentation
+- **[Data Requirements](data-requirements.html)** - Understand technology adoption
+- **[Scenario Comparison](scenario-comparison.html)** - Compare cost scenarios
+- **[API Reference](../api-reference.html)** - Full API documentation

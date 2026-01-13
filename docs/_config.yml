@@ -72,6 +72,9 @@ heading_anchors: true
 # Code highlighting
 highlighter: rouge
 
+# Disable copy code button
+enable_copy_code_button: false
+
 # Build settings
 #theme: minima
 theme: just-the-docs
