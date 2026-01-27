@@ -36,7 +36,7 @@ BICEP models adoption of four key technologies:
 
 **Available Scenarios:**
 - **BAU (Business As Usual)**: Conservative adoption rates
-- **High**: High electrification and renewable adoption rates
+- **High**: High demand growth scenario with higher adoption rates
 
 The differences between scenarios are substantial, particularly for heating technologies. The High scenario assumes 2-3x higher adoption rates by 2050.
 

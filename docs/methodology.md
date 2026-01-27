@@ -8,11 +8,11 @@ nav_order: 3
 
 This page provides an overview of the BICEP model methodology. For complete details, please refer to our IEEE paper:
 
-> Yoder, T., Van Dyke, I., Mott, A., & Esaki-Kua, L. (2025). "Estimating Behind-the-Meter Infrastructure Costs for Electrification Progression." *IEEE Power and Energy Society General Meeting 2025*.
+> Yoder, T., Van Dyke, I., Mott, A., & Esaki-Kua, L. (2025). "Estimating Behind-the-Meter Infrastructure Costs for Technology Adoption." *IEEE Power and Energy Society General Meeting 2025*.
 
 ## Overview
 
-BICEP is a **probabilistic model** that estimates behind-the-meter (BTM) electrical infrastructure upgrade costs required for electrification under various decarbonization scenarios. The model evaluates costs on a per-customer basis, which can then be aggregated to state and national levels.
+BICEP is a **probabilistic model** that estimates behind-the-meter (BTM) electrical infrastructure upgrade costs required under various energy scenarios. The model evaluates costs on a per-customer basis, which can then be aggregated to state and national levels.
 
 ### Key Innovation
 
@@ -53,7 +53,7 @@ Estimates capacity from building electrical load data using **National Electric 
 
 **Note:** The datasets and forecasts used in this documentation are for illustrative purposes only. The BICEP tool is intended to be run on any arbitrary technology time series projection. To use your own forecasts, you only need base and end years along with the stock count at those times.
 
-BICEP incorporates four electrification technologies with adoption forecasts from sector models:
+BICEP incorporates four key technologies with adoption forecasts from sector models:
 
 ### Heat Pumps (HP) and Heat Pump Water Heaters (HPWH)
 - **Source**: Scout model + ResStock/ComStock

@@ -1,6 +1,6 @@
 """
 Estimate the upgrades and associated costs for the modeled existing capacity and
-required additional capacity resulting from the decarbonization technology scenarios.
+required additional capacity resulting from the various energy scenarios.
 """
 
 from loguru import logger

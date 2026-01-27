@@ -1,8 +1,8 @@
 """
-BICEP - Building Electrification Infrastructure Cost Projections
+BICEP - Building Infrastructure Cost Estimation Program
 
 Main module for estimating electrical infrastructure upgrade costs
-for building electrification scenarios.
+for various energy scenarios.
 """
 
 from bicep.analysis import BicepResults, BicepMultiStateResults

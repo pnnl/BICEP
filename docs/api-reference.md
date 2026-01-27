@@ -15,7 +15,7 @@ This page provides an overview of the main classes and functions in BICEP. For c
 ### `CapacityEstimate`
 **Location**: `bicep.capacity`
 
-Estimates existing electrical capacity and required additional capacity for electrification technologies.
+Estimates existing electrical capacity and required additional capacity for various technologies.
 
 ```python
 from bicep.capacity import CapacityEstimate
@@ -66,7 +66,7 @@ pv_adopted = tech.buildings['pv_adopted'].sum()
 - `_iterative_adoption(tech, tech_project_col)` - Models PV/EV adoption using iterative sampling
 
 **Key Parameters:**
-- `scenario` - Either 'bau' or 'high' electrification scenario
+- `scenario` - Either 'bau' (Business As Usual) or 'high' (High Demand Growth) scenario
 - `base_year` (2020) - Starting year for analysis
 - `end_year` (2050) - End year for technology adoption
 
@@ -237,7 +237,7 @@ results = BicepResults(
 
 **Key Parameters:**
 - `aggregation_level`: Spatial aggregation - `'state'` for state-level analysis or `'national'` for national totals
-- `scenario`: Decarbonization scenario - `'bau'` (Business As Usual) or `'high'` (High electrification)
+- `scenario`: Energy scenario - `'bau'` (Business As Usual) or `'high'` (High Demand Growth)
 - `annualized`: If `True`, returns annualized costs; if `False`, returns present value
 - `discount_rate`: Used to bring future costs to present value
 - `nominal_inflation_rate`: Used to escalate costs to future years
@@ -389,7 +389,7 @@ Here's a complete example analyzing costs for different scenarios:
 from bicep.analysis import BicepResults
 import pandas as pd
 
-# Compare BAU vs High electrification scenarios
+# Compare BAU vs High Demand Growth scenarios
 scenarios = {}
 for scenario in ['bau', 'high']:
     results = BicepResults(

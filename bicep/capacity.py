@@ -1,6 +1,6 @@
 """
 Electrical service capacity estimation for existing building stock and required
-additional capacity for the technologies in the decarbonization scenarios.
+additional capacity for the technologies in various energy scenarios.
 
 Existing installed electrical capacity of the building stock is estimated
 based on peak load data from Com/ResStock (xStock) building energy models (BEMs).

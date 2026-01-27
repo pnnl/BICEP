@@ -5,25 +5,25 @@ parent: Examples
 nav_order: 3
 ---
 
-# Scenario Comparison: BAU vs High Electrification
+# Scenario Comparison: BAU vs High Demand Growth
 
-This page compares infrastructure upgrade costs across two decarbonization scenarios.
+This page compares infrastructure upgrade costs across two energy scenarios.
 
 ## Overview
 
-BICEP analyzes two contrasting scenarios that represent different levels of electrification:
+BICEP analyzes two contrasting scenarios that represent different levels of technology adoption:
 
 ### Business As Usual (BAU)
 - Reflects current policies and baseline technology adoption trends
-- Lower overall electrification rates
+- Lower overall technology adoption rates
 - Lower electrical infrastructure upgrade requirements
 - Baseline for comparison
 
 ### High
-- Assumes aggressive decarbonization and electrification policies
+- Assumes higher technology adoption and increased demand
 - Significantly higher technology adoption rates
 - Greater electrical infrastructure demands
-- Represents an aspirational decarbonization pathway
+- Represents a high-demand scenario
 
 ## Cost Implications
 
@@ -157,8 +157,8 @@ Different scenarios inform different planning horizons:
 ### Geographic Focus
 
 1. **Large Population Centers**: CA, TX, NY, FL - largest absolute investments
-2. **High Adoption Regions**: Northeast, West Coast - likely higher electrification
-3. **Industrial Areas**: May require specialized upgrades for manufacturing electrification
+2. **High Adoption Regions**: Northeast, West Coast - likely higher technology adoption
+3. **Industrial Areas**: May require specialized upgrades for manufacturing technology adoption
 
 ## Advanced Analysis
 
