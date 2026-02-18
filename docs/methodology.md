@@ -36,7 +36,7 @@ No comprehensive dataset exists for existing electrical infrastructure capacity 
 ### BICEP Solution
 Estimates capacity from building electrical load data using **National Electric Code (NEC) Section 220.87**:
 
-- Extracts peak demand from ResStock/ComStock building energy models (~885,000 buildings)
+- Extracts peak demand from ResStock [1]/ComStock [2] building energy models (~885,000 buildings)
 - Applies NEC-required 125% safety factor to peak demand
 - Converts peak power to current using assumed voltages:
   - Residential: 240V
@@ -56,19 +56,19 @@ Estimates capacity from building electrical load data using **National Electric 
 BICEP incorporates four key technologies with adoption forecasts from sector models:
 
 ### Heat Pumps (HP) and Heat Pump Water Heaters (HPWH)
-- **Source**: Scout model + ResStock/ComStock
+- **Source**: Scout model [3] + ResStock [1]/ComStock [2]
 - **Method**: Conditional probability conversion using existing equipment types
 - **Load Impact**: Uses End-Use Load Profiles (EULP) upgrade scenarios to calculate actual peak demand differences
 
 ### Solar Photovoltaic (PV)
-- **Source**: ReEDS model (regional capacity forecasts)
+- **Source**: ReEDS model [4] (regional capacity forecasts)
 - **Method**: 
   1. Estimate building-specific PV sizes using empirical size distribution
   2. Iteratively sample buildings until regional capacity targets are met
 - **Load Impact**: PV capacity converted to current requirements at building voltage
 
 ### Electric Vehicles (EV)
-- **Source**: TEMPO model (vehicle count forecasts)
+- **Source**: TEMPO model [5] (vehicle count forecasts)
 - **Method**:
   - Commercial: Parking spaces per 1000 sq ft × % EV spaces
   - Residential: Vehicles per housing unit distribution
@@ -109,8 +109,8 @@ Where:
 ### Cost Distributions
 Due to limited empirical data, costs are drawn from probability distributions:
 
-- **Residential**: Lognormal or Fréchet distributions ($0 - $35,000 range)
-- **Commercial**: Lognormal or Fréchet distributions ($0 - $350,000 range)
+- **Residential**: Lognormal or Fréchet distributions ($0 - $35,000 range) [6]
+- **Commercial**: Lognormal or Fréchet distributions ($0 - $350,000 range) [6]
 - Both distributions are right-skewed to capture higher frequency of lower-cost upgrades
 
 ### Cost Adjustments
@@ -128,8 +128,8 @@ Due to limited empirical data, costs are drawn from probability distributions:
 ## Model Validation
 
 ### California Case Study
-- **BICEP estimate**: $954 million (3% discount rate)
-- **Literature range**: $30 million - $2.3 billion
+- **BICEP estimate**: $954 million (3% discount rate) [8]
+- **Literature range**: $30 million - $2.3 billion [7]
 - Results align well despite different methodological approaches
 
 ### Key Insights
@@ -159,3 +159,21 @@ The BICEP model is implemented in Python and available as open-source software. 
 - **Multiple outputs**: State, regional, or national cost aggregation
 
 For implementation examples, see our [Examples](examples/) section.
+
+## References
+
+[1] NREL. (2024). *ResStock General Reference Documentation.* National Renewable Energy Laboratory. [https://nrel.github.io/ResStock.github.io/](https://nrel.github.io/ResStock.github.io/)
+
+[2] Parker, A., Henry, H., Horsey, H., Craig, M., et al. (2023). *ComStock Reference Documentation.* NREL/TP-5500-83819. National Renewable Energy Laboratory. [https://www.nrel.gov/docs/fy23osti/83819.pdf](https://www.nrel.gov/docs/fy23osti/83819.pdf)
+
+[3] Harris, C., Langevin, J., Roth, A., Phelan, P., Parker, A., Ball, B., et al. (2021). "Scout: An Impact Analysis Tool for Building Energy-Efficiency Technologies." *ACEEE Summer Study on Energy Efficiency in Buildings.* [https://scout-bto.readthedocs.io/](https://scout-bto.readthedocs.io/)
+
+[4] Ho, J., Becker, J., Brown, M., et al. (2021). *Regional Energy Deployment System (ReEDS) Model Documentation: Version 2020.* NREL/TP-6A20-78195. National Renewable Energy Laboratory. [https://doi.org/10.2172/1788425](https://doi.org/10.2172/1788425)
+
+[5] Muratori, M., Jadun, P., Bush, B., et al. (2021). *The Transportation Energy and Mobility Pathway Options (TEMPO) Model.* NREL/TP-5400-80306. National Renewable Energy Laboratory. [https://doi.org/10.2172/1823026](https://doi.org/10.2172/1823026)
+
+[6] NV5 and Redwood Energy. (2022). *PG&E Service Upgrades for Electrification Retrofits Study Final Report.* Pacific Gas and Electric Company.
+
+[7] Kenney, M., et al. (2021). *California Building Decarbonization Assessment.* California Energy Commission. CEC-400-2021-006-CMF.
+
+[8] Economic assumptions: 3% discount rate, 25-year equipment lifespan for present value calculations.
