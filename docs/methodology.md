@@ -8,7 +8,7 @@ nav_order: 3
 
 This page provides an overview of the BICEP model methodology. For complete details, please refer to our IEEE paper:
 
-> Yoder, T., Van Dyke, I., Mott, A., & Esaki-Kua, L. (2025). "Estimating Behind-the-Meter Infrastructure Costs for Technology Adoption." *IEEE Power and Energy Society General Meeting 2025*.
+> T. Yoder, I. Van Dyke, A. Mott and L. Esaki-Kua, "Estimating Behind-the-Meter Infrastructure Costs for Electrification Progression," 2025 IEEE Power & Energy Society General Meeting (PESGM), Austin, TX, USA, 2025, pp. 1-5, doi: 10.1109/PESGM52009.2025.11225370.
 
 ## Overview
 
@@ -140,14 +140,9 @@ Analysis reveals technology-specific drivers:
 ## Limitations and Future Work
 
 ### Current Limitations
-- Medium/heavy-duty vehicle charging not included
+- Medium/heavy-duty vehicle charging not included in the core codebase (available as a feature branch)
 - Industrial sector excluded due to bespoke upgrade requirements
 - Some distributions based on limited empirical data
-
-### Planned Improvements
-- Integration of MHDV charging infrastructure
-- Enhanced location-based cost adjustments
-- Calibration of distributions as new empirical data becomes available
 
 ## Implementation
 
