@@ -2,21 +2,21 @@
 layout: default
 title: Home
 nav_order: 1
-description: "BICEP User Guide - Building Infrastructure Cost Estimation Program"
+description: "BICEP User Guide - Behind-the-Meter Infrastructure Costs for Electrification Progression"
 permalink: /
 ---
 
 # BICEP User Guide
 {: .fs-9 }
 
-Building Infrastructure Cost Estimation Program
+Behind-the-Meter Infrastructure Costs for Electrification Progression
 {: .fs-6 .fw-300 }
 
 [Get started now](#quick-start){: .get-started-btn }
 
 # BICEP User Guide
 
-Building Infrastructure Cost Estimation Program (BICEP) is a probabilistic model that provides granular estimation of existing electrical capacity and required additional capacity for various technologies in future energy scenarios.
+Behind-the-Meter Infrastructure Costs for Electrification Progression (BICEP) is a probabilistic model that provides granular estimation of existing electrical capacity and required additional capacity for various technologies in future energy scenarios.
 
 ## Quick Start
 
@@ -46,4 +46,4 @@ results.plot_drivers(residential=1)
 ## Citation
 
 If you use BICEP in your research, please cite our IEEE paper:
-> Yoder, T., Van Dyke, I., Mott, A., & Esaki-Kua, L. (2025). "Estimating Behind-the-Meter Infrastructure Costs for Electrification Progression." *IEEE Power and Energy Society General Meeting 2025*.
+> T. Yoder, I. Van Dyke, A. Mott and L. Esaki-Kua, "Estimating Behind-the-Meter Infrastructure Costs for Electrification Progression," 2025 IEEE Power & Energy Society General Meeting (PESGM), Austin, TX, USA, 2025, pp. 1-5, doi: 10.1109/PESGM52009.2025.11225370.
