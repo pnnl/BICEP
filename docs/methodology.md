@@ -18,8 +18,9 @@ BICEP is a **probabilistic model** that estimates behind-the-meter (BTM) electri
 
 Unlike previous studies that use broad-brush fuel substitution approaches, BICEP:
 - Uses detailed building energy models to estimate actual load changes
-- Accounts for building-specific factors (envelope, equipment efficiency, existing systems)
+- Accounts for building-specific factors (envelope, equipment efficiency, existing systems, local climate)
 - Provides probabilistic rather than deterministic estimates
+  - Parameterized probability distributions are easy to modify to satisfy user assumptions
 - Operates at granular (per-building) scale
 
 ## Model Framework
@@ -34,7 +35,7 @@ The BICEP methodology consists of four main components:
 No comprehensive dataset exists for existing electrical infrastructure capacity in US buildings. Surveys like RECS and CBECS don't include electrical capacity data.
 
 ### BICEP Solution
-Estimates capacity from building electrical load data using **National Electric Code (NEC) Section 220.87**:
+Estimates the existing BTM electrical capacity and utilitization from the ResStock and ComStock building energy models (BEMs). The peak load from each representative BEMs is used to estimate the current required capacity using **National Electric Code (NEC) Section 220.87**:
 
 - Extracts peak demand from ResStock [1]/ComStock [2] building energy models (~885,000 buildings)
 - Applies NEC-required 125% safety factor to peak demand
@@ -102,7 +103,7 @@ Upgrade required when:
 **Required Additional Capacity > Available Spare Capacity**
 
 Where:
-- **Available Spare Capacity** = Estimated Installed Capacity - Current Peak Demand × 1.25
+- **Available Spare Capacity** = Estimated Installed Capacity - Estimated Peak Utilization
 
 ## 4. Upgrade Cost Estimation
 
@@ -137,9 +138,7 @@ Analysis reveals technology-specific drivers:
 - **EVs**: Largest driver of required upgrades in California
 - **Heat pumps/HPWHs**: Lower upgrade requirements due to efficient replacement of existing electric systems
 
-## Limitations and Future Work
-
-### Current Limitations
+## Current Limitations
 - Medium/heavy-duty vehicle charging not included in the core codebase (available as a feature branch)
 - Industrial sector excluded due to bespoke upgrade requirements
 - Some distributions based on limited empirical data

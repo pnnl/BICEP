@@ -12,11 +12,11 @@ permalink: /
 Behind-the-Meter Infrastructure Costs for Electrification Progression
 {: .fs-6 .fw-300 }
 
-[Get started now](#quick-start){: .get-started-btn }
+[Get started now](getting-started.html){: .get-started-btn }
 
 # BICEP User Guide
 
-Behind-the-Meter Infrastructure Costs for Electrification Progression (BICEP) is a probabilistic model that provides granular estimation of existing electrical capacity and required additional capacity for various technologies in future energy scenarios.
+Behind-the-Meter Infrastructure Costs for Electrification Progression (BICEP) is a probabilistic model that provides granular estimation of existing behind-the-meter (BTM) electrical capacity and required additional capacity for various technologies in future energy scenarios.
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ results.plot_drivers(residential=1)
 ## Key Features
 
 - **Probabilistic modeling** of electrical infrastructure capacity
-- **Multi-sector analysis** (residential, commercial, transportation)
+- **Multi-sector analysis** (residential and commercial buildings)
 - **Technology adoption forecasting** (heat pumps, EVs, solar PV)
 - **Cost estimation** with uncertainty quantification
 

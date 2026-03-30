@@ -11,11 +11,11 @@ This page explains the input data requirements for BICEP and how to use custom t
 
 ## Overview
 
-BICEP uses several types of input data to estimate infrastructure upgrade requirements:
+BICEP uses several types of input data to estimate infrastructure upgrade requirements (see the [Methdology](../methodology.html) page for more details):
 
 ### 1. Building Stock Data
 
-BICEP analyzes building stocks using data from xStock energy models:
+BICEP analyzes building stocks using data from ComStock and ResStock (xStock) datasets:
 
 - **Building characteristics**: Type (residential/commercial), size, age, location
 - **Electrical loads**: Peak electrical loads from energy simulations
@@ -25,14 +25,16 @@ This data is pre-loaded and available in BICEP's built-in database.
 
 ### 2. Technology Adoption Forecasts
 
+**Note:** The datasets and forecasts used in this documentation are for illustrative purposes only. The BICEP tool is intended to be run on any arbitrary technology time series projection. To use your own forecasts, you only need base and end years along with the stock count at those times.
+
 BICEP models adoption of four key technologies:
 
 | Technology | End Use | Data Source |
 |------------|---------|-------------|
-| **Electric Vehicles (EV)** | Transportation | ReEDS projections |
 | **Heat Pumps (HP)** | Space heating/cooling | Scout projections |
 | **Heat Pump Water Heaters (HPWH)** | Water heating | Scout projections |
 | **Solar Photovoltaic (PV)** | Electricity generation | ReEDS projections |
+| **Electric Vehicles (EV)** | Transportation | TEMPO projections |
 
 **Available Scenarios:**
 - **BAU (Business As Usual)**: Conservative adoption rates
