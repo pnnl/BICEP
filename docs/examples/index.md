@@ -15,27 +15,27 @@ This section provides hands-on examples demonstrating how to use BICEP for elect
 We provide several Jupyter notebooks that demonstrate different aspects of BICEP:
 
 1. **[basic-analysis.ipynb](notebooks/basic-analysis.ipynb)** - Basic analysis workflow
-   - [View on GitHub (docs branch)](https://github.com/pnnl/BICEP/blob/docs/docs/examples/notebooks/basic-analysis.ipynb){: target="_blank" }
+   - [View on GitHub (main branch)](https://github.com/pnnl/BICEP/blob/main/docs/examples/notebooks/basic-analysis.ipynb){: target="_blank" }
    - Setting up BICEP analysis
    - Loading pre-computed scenario results
    - Calculating and visualizing costs
    - Key cost drivers
 
 2. **[data-requirements.ipynb](notebooks/data-requirements.ipynb)** - Understanding input data
-   - [View on GitHub (docs branch)](https://github.com/pnnl/BICEP/blob/docs/docs/examples/notebooks/data-requirements.ipynb){: target="_blank" }
+   - [View on GitHub (main branch)](https://github.com/pnnl/BICEP/blob/main/docs/examples/notebooks/data-requirements.ipynb){: target="_blank" }
    - Input data structure and requirements
    - Available technologies and projections
    - Technology forecasts across scenarios
    - Custom forecast integration
 
 3. **[scenario-comparison.ipynb](notebooks/scenario-comparison.ipynb)** - Comparing scenarios
-   - [View on GitHub (docs branch)](https://github.com/pnnl/BICEP/blob/docs/docs/examples/notebooks/scenario-comparison.ipynb){: target="_blank" }
+   - [View on GitHub (main branch)](https://github.com/pnnl/BICEP/blob/main/docs/examples/notebooks/scenario-comparison.ipynb){: target="_blank" }
    - BAU vs High load growth scenarios
    - Scenario comparison plots and analysis
    - Cost differences and implications
 
 4. **[custom-distributions.ipynb](notebooks/custom-distributions.ipynb)** - Advanced customization
-   - [View on GitHub (docs branch)](https://github.com/pnnl/BICEP/blob/docs/docs/examples/notebooks/custom-distributions.ipynb){: target="_blank" }
+   - [View on GitHub (main branch)](https://github.com/pnnl/BICEP/blob/main/docs/examples/notebooks/custom-distributions.ipynb){: target="_blank" }
    - Using custom cost distributions
    - Distribution classes and parameters
    - Sensitivity analysis
