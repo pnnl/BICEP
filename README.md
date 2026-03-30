@@ -1,5 +1,9 @@
 # Building Infrastructure Cost Estimation Program (BICEP) model
 
+## [Documentation & User Guide](https://pnnl.github.io/BICEP/)
+
+> Full documentation, methodology, examples, and API reference are available at **https://pnnl.github.io/BICEP/**
+
 This repo contains the code for the BICEP model. It was developed with funding from DOE's EERE Strategic Analysis.
 
 BICEP is a probabilistic model that provides a granular estimation of existing electrical capacity and the required additional capacity for the 
