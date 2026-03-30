@@ -77,12 +77,12 @@ enable_copy_code_button: false
 
 # Build settings
 #theme: minima
-theme: just-the-docs
-#remote_theme: just-the-docs/just-the-docs
+#theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs
 
 plugins:
   - jekyll-feed
-#  - jekyll-remote-theme
+  - jekyll-remote-theme
   - jekyll-sitemap
 
 # Exclude from processing.
