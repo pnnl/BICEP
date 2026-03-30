@@ -1,6 +1,6 @@
 """
 Electrical service capacity estimation for existing building stock and required
-additional capacity for the technologies in the decarbonization scenarios.
+additional capacity for the technologies in various energy scenarios.
 
 Existing installed electrical capacity of the building stock is estimated
 based on peak load data from Com/ResStock (xStock) building energy models (BEMs).
@@ -326,7 +326,7 @@ class CapacityEstimate:
         bldg.loc[bldg['residential'] == 1, 'perc_ev_spaces'] = 1
 
         # calibrating to ~50M vehicles
-        bldg['represented_vehicles'] = (bldg['total_units']/5).fillna(1).infer_objects(copy=False) * bldg['total_parking_spaces']
+        bldg['represented_vehicles'] = (bldg['total_units']/5).fillna(1) * bldg['total_parking_spaces']
 
         bldg['ev_spaces'] = bldg['total_parking_spaces'] * bldg['perc_ev_spaces']
         bldg['ev_spaces'] = np.ceil(bldg['ev_spaces'])

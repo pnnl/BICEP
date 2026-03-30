@@ -27,3 +27,6 @@ numpy-financial
 # Visualization
 plotly
 dash
+
+# Notebooks
+notebook

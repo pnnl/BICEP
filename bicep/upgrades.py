@@ -1,6 +1,6 @@
 """
 Estimate the upgrades and associated costs for the modeled existing capacity and
-required additional capacity resulting from the decarbonization technology scenarios.
+required additional capacity resulting from the various energy scenarios.
 """
 
 from loguru import logger
@@ -150,9 +150,12 @@ class UpgradeEstimator(TechnologyAdoption):
             engine = self.db_context.get_engine()
             state_factors = query_to_df(query, engine)
             factor_dict = dict(zip(state_factors['State'], state_factors['Factor']))
-            self.buildings['location_factor'] = self.buildings['state'].map(factor_dict).fillna(-999)
-            unmapped = self.buildings[self.buildings['location_factor'] == -999]
-            logger.debug(f"There are {len(unmapped)} values that didn't map")
+            self.buildings['location_factor'] = self.buildings['state'].map(factor_dict)
+            unmapped_states = self.buildings.loc[self.buildings['location_factor'].isna(), 'state'].unique()
+            if len(unmapped_states) > 0:
+                logger.warning(f"States missing from state_cost_factors: {list(unmapped_states)}. "
+                               f"Using factor=1.0 as default for these states.")
+                self.buildings['location_factor'] = self.buildings['location_factor'].fillna(1.0)
         except Exception as e:
             logger.error(f"Error applying location factors: {e}")
             raise RuntimeError("Failed to apply location factors")

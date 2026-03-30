@@ -1,14 +1,14 @@
-# Behind-the-meter Infrastructure Costs for Electrification Progression (BICEP) model
+# Building Infrastructure Cost Estimation Program (BICEP) model
 
 This repo contains the code for the BICEP model. It was developed with funding from DOE's EERE Strategic Analysis.
 
 BICEP is a probabilistic model that provides a granular estimation of existing electrical capacity and the required additional capacity for the 
-various electrification technologies in the future energy scenarios based on the net change in load on a per-customer basis.
+various technologies in future energy scenarios based on the net change in load on a per-customer basis.
 
 The model leverages data products from other sectoral models, primarily those estimating high resolution spatial 
-and temporal demand load profiles: ResStock, ComStock, Scout, dGEN, ReEDS, and TEMPO. 
+and temporal demand load profiles: [ResStock](https://nrel.github.io/ResStock.github.io/), [ComStock](https://www.nrel.gov/docs/fy23osti/83819.pdf), [Scout](https://scout-bto.readthedocs.io/), dGEN, [ReEDS](https://doi.org/10.2172/1788425), and [TEMPO](https://doi.org/10.2172/1823026). 
 ResStock/ComStock outputs are used to estimate existing building electrical capacity and the 
-load associated with the building electrification technologies. Adoption forecasts for the various 
+load associated with the various technologies being analyzed. Adoption forecasts for the 
 technologies are sourced from the other models.
 
 ![Basic overview of BICEP model framework.](model_overview.png "BICEP Model Overview")
