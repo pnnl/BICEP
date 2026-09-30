@@ -1,5 +1,5 @@
 """
-BICEP - Building Infrastructure Cost Estimation Program
+BICEP - Behind-the-Meter Infrastructure Costs for Electrification Progression
 
 Main module for estimating electrical infrastructure upgrade costs
 for various energy scenarios.
