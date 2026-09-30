@@ -1,4 +1,4 @@
-# Building Infrastructure Cost Estimation Program (BICEP) model
+# Behind-the-Meter Infrastructure Costs for Electrification Progression (BICEP) model
 
 ## [Documentation & User Guide](https://pnnl.github.io/BICEP/)
 
